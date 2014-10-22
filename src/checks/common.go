@@ -4,46 +4,108 @@ import (
 	simplejson "github.com/bitly/go-simplejson"
 	amqp "github.com/streadway/amqp"
 	//	"fmt"
-	"time"
 	"encoding/json"
 	"log"
+	"strings"
+	"time"
 )
 
 const RESULTS_QUEUE = "results"
 
-type Result struct {
-	Name            string `json:"name"`
-	Address         string `json:"address"`
-	Command         string `json:"command"`
-	Executed        uint `json:"executed"`
-	Status          int `json:"status"`
-	Output          string `json:"output"`
-	Duration        time.Duration `json:"duration"`
-	Timeout         int `json:"timeout"`
-	started         time.Time
+type check struct {
+	Name       string   `json:"name"`       // the check name in sensu
+	Command    string   `json:"command"`    // the "command" that was run
+	Executed   uint     `json:"executed"`   // timestamp for when this check was started
+	Issued     uint     `json:"issued"`     // timestamp for when this check was sent
+	Status     int      `json:"status"`     // the status for the check. 0 = success. > 0 = fail
+	Output     string   `json:"output"`     // the output of the check script
+	Duration   float64  `json:"duration"`   // how long it took to run the check. this needs to be transformed to "seconds.milliseconds
+	CheckType  string   `json:"type"`       // "metric|???"
+	Handlers   []string `json:"handlers"`   // how this data is processed
+	Interval   int      `json:"interval"`   // how long between checks, in seconds
+	Standalone bool     `json:"standalone"` // was this check unsolicited?
+
+	Address string `json:"-"` // usage unknown
+
+	// not used
+	timeout    int
+	started    time.Time
+	time_taken time.Duration
 }
 
-func NewResult(clientConfig *simplejson.Json) *Result {
+type Result struct {
+	Client            string `json:"client"` // DNS Name for this host
+	client_short_name string
+	Check             check `json:"check"`
+}
+
+func (r *Result) SetOutput(output string) {
+	r.Check.Output = output
+}
+
+func (r *Result) SetInterval(interval time.Duration) {
+	r.Check.Interval = int(interval / time.Second)
+}
+
+func (r *Result) ShortName() string {
+	return r.client_short_name
+}
+
+func (r *Result) StartTime() uint {
+	return r.Check.Executed
+}
+
+func (r *Result) SetStatus(status int) {
+	r.Check.Status = status
+}
+
+func (r *Result) SetCommand(command string) {
+	r.Check.Command = command
+}
+
+func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
 	result := new(Result)
-	result.Name, _ = clientConfig.Get("name").String()
-	result.Address, _ = clientConfig.Get("address").String()
-	result.Executed = uint(time.Now().Unix())
-	result.started = time.Now()
+
+	result.Client, _ = clientConfig.Get("name").String()
+	bits := strings.Split(result.Client, ".")
+	result.client_short_name = bits[0]
+
+	result.Check.Name = check_name
+	result.Check.Address, _ = clientConfig.Get("address").String()
+	result.Check.Executed = uint(time.Now().Unix())
+	result.Check.Handlers = make([]string, 1)
+	result.Check.Handlers[0] = "metrics"
+	result.Check.CheckType = "metric"
+	result.Check.Standalone = true
+	result.Check.Status = 0
+
+	result.Check.started = time.Now()
 
 	return result
 }
 
+func (r *Result) calculate_duration() {
+	var duration = time.Now().Sub(r.Check.started)
+	r.Check.Duration = duration.Seconds()
+}
+
 func (result *Result) toJson() []byte {
-	json, _ := json.Marshal(result)
+	result.calculate_duration()
+	result.Check.Output += "\n"
+	result.Check.Issued = uint(time.Now().Unix())
+
+	json, err := json.Marshal(result)
+	if nil != err {
+		log.Panic(err)
+	}
 	log.Printf(string(json))
 	return json
 }
 
 func (result *Result) GetPayload() amqp.Publishing {
 	return amqp.Publishing{
-		ContentType: "application/octet-stream",
+		ContentType:  "application/octet-stream",
 		Body:         result.toJson(),
 		DeliveryMode: amqp.Transient,
 	}
 }
-

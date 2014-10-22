@@ -2,9 +2,6 @@ package checks
 
 import (
 	"sensu"
-	"log"
-	"time"
-	"fmt"
 )
 
 // CPU Status for Linux based machines
@@ -18,72 +15,15 @@ import (
 // PLATFORMS
 //   Linux
 
-type LoadStats struct {
-	q      sensu.MessageQueuer
-	config *sensu.Config
-	close  chan bool
+type LoadStats struct{}
 
-	frequency map[int]int
-	cpu_count int
+func (load *LoadStats) Init(config *sensu.Config) (string, error) {
+	return "load", nil
 }
 
-var loadAvgInterval = 30 * time.Second
-
-func (load *LoadStats) Init(q sensu.MessageQueuer, config *sensu.Config) error {
-	if err := q.ExchangeDeclare(
-		RESULTS_QUEUE,
-		"direct",
-	); err != nil {
-		return fmt.Errorf("Exchange Declare: %s", err)
-	}
-
-	load.q = q
-	load.config = config
-	load.close = make(chan bool)
-
-	return nil
-}
-
-func (load *LoadStats) Start() {
-	clientConfig := load.config.Data().Get("client")
-
-	reset := make(chan bool)
-	timer := time.AfterFunc(0, func() {
-			var err error
-			result := NewResult(clientConfig)
-			result.Output, err = load.createLoadAveragePayload(result.Executed)
-			if nil != err {
-				result.Status = 1
-				result.Output = fmt.Sprintf("Error: %s", err)
-				load.Stop() // no point in continually reporting the same error.
-			}
-			load.publish(result)
-			reset <- true
-		})
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-reset:
-			timer.Reset(loadAvgInterval)
-		case <-load.close:
-			return
-		}
-	}
-}
-
-func (load *LoadStats) Stop() {
-	load.close <- true
-}
-
-func (load *LoadStats) publish(result *Result) {
-	if err := load.q.Publish(
-		RESULTS_QUEUE,
-		"",
-		result.GetPayload(),
-	); err != nil {
-		log.Printf("LoadAvg.publish: %v", err)
-		return
-	}
-	log.Print("Load Avg stats published")
+func (load *LoadStats) Gather(r *Result) error {
+	r.SetCommand("load-metrics.rb")
+	output, err := load.createLoadAveragePayload(r.ShortName(), r.StartTime())
+	r.SetOutput(output)
+	return err
 }

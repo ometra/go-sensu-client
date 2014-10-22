@@ -1,12 +1,12 @@
 package main
 
 import (
+	"checks"
 	"flag"
 	"log"
 	"os"
-	"strings"
-	"checks"
 	"sensu"
+	"strings"
 )
 
 var configFile, configDir string
@@ -28,9 +28,8 @@ func main() {
 
 	processes := []sensu.Processor{
 		new(sensu.Keepalive),
-//		new(sensu.Subscriber),
-		new(checks.CpuStats),
-		new(checks.LoadStats),
+		new(sensu.Subscriber),
+		checks.NewProcessor(),
 	}
 	c := sensu.NewClient(settings, processes)
 

@@ -2,9 +2,6 @@ package checks
 
 import (
 	"sensu"
-	"log"
-	"time"
-	"fmt"
 )
 
 // CPU Status for Linux based machines
@@ -19,71 +16,17 @@ import (
 //   Linux
 
 type CpuStats struct {
-	q      sensu.MessageQueuer
-	config *sensu.Config
-	close  chan bool
-
 	frequency map[int]int
 	cpu_count int
 }
 
-var cpuStatInterval = 30 * time.Second
-
-func (cpu *CpuStats) Init(q sensu.MessageQueuer, config *sensu.Config) error {
-	if err := q.ExchangeDeclare(
-		RESULTS_QUEUE,
-		"direct",
-	); err != nil {
-		return fmt.Errorf("Exchange Declare: %s", err)
-	}
-
-	cpu.q = q
-	cpu.config = config
-	cpu.close = make(chan bool)
-
-	return cpu.setup()
+func (cpu *CpuStats) Init(config *sensu.Config) (string, error) {
+	return "cpu", cpu.setup() // os dependent part
 }
 
-func (cpu *CpuStats) Start() {
-	clientConfig := cpu.config.Data().Get("client")
-
-	reset := make(chan bool)
-	timer := time.AfterFunc(0, func() {
-			var err error
-			result := NewResult(clientConfig)
-			result.Output, err = cpu.createCpuFreqPayload(result.Executed)
-			if nil != err {
-				result.Status = 1
-				result.Output = fmt.Sprintf("Error: %s", err)
-				cpu.Stop() // no point in continually reporting the same error.
-			}
-			cpu.publish(result)
-			reset <- true
-		})
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-reset:
-			timer.Reset(cpuStatInterval)
-		case <-cpu.close:
-			return
-		}
-	}
-}
-
-func (cpu *CpuStats) Stop() {
-	cpu.close <- true
-}
-
-func (cpu *CpuStats) publish(result *Result) {
-	if err := cpu.q.Publish(
-		RESULTS_QUEUE,
-		"",
-		result.GetPayload(),
-	); err != nil {
-		log.Printf("CpuStats.publish: %v", err)
-		return
-	}
-	log.Print("CPU stats published")
+func (cpu *CpuStats) Gather(r *Result) error {
+	r.SetCommand("cpu-freq-metrics.rb")
+	output, err := cpu.createCpuFreqPayload(r.ShortName(), r.StartTime())
+	r.SetOutput(output)
+	return err
 }

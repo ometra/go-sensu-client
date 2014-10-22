@@ -39,7 +39,7 @@ func (cpu *CpuStats) setup() error {
 	return nil
 }
 
-func (cpu *CpuStats) createCpuFreqPayload(timestamp uint) (string, error) {
+func (cpu *CpuStats) createCpuFreqPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
 	// now inject our data
 	for i := 0; i < cpu.cpu_count; i++ {
@@ -57,25 +57,9 @@ func (cpu *CpuStats) createCpuFreqPayload(timestamp uint) (string, error) {
 			log.Printf("Could not get CPU Freq for CPU %d: %s",i, err)
 		}
 
-		payload += fmt.Sprintf("cpu.frequency.current.cpu%d %d %d\n", i, cpu.frequency[i], timestamp)
+		payload += fmt.Sprintf("%s.cpu.frequency.current.cpu%d %d %d\n", short_name, i, cpu.frequency[i], timestamp)
 	}
-
-	return payload, nil
-}
-
-
-func (cpu *CpuStats) createLoadAveragePayload(timestamp uint) (string, error) {
-	var payload string
-	content, err := ioutil.ReadFile("/proc/loadavg")
-	if nil != err {
-		return payload, err
-	}
-
-	bits := strings.Split(string(content), " ")
-
-	payload = fmt.Sprintf("loadavg.1 %s %d\n", bits[0], timestamp)
-	payload += fmt.Sprintf("loadavg.5 %s %d\n", bits[1], timestamp)
-	payload += fmt.Sprintf("loadavg.15 %s %d\n", bits[2], timestamp)
+	payload += fmt.Sprintf("%s.cpu.cpu_count %d %d\n", short_name, cpu.cpu_count, timestamp)
 
 	return payload, nil
 }
