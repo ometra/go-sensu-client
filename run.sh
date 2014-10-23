@@ -1,3 +1,3 @@
 #!/bin/sh
-export GOPATH=/home/jason/swift/go-sensu-client
+export GOPATH=`pwd`
 go run src/sensu-client.go --config-file=src/config/config.json
