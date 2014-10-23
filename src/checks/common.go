@@ -40,6 +40,33 @@ type Result struct {
 	Check             check `json:"check"`
 }
 
+// sets up the common result data
+func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
+	result := new(Result)
+
+	result.Client, _ = clientConfig.Get("name").String()
+	// host name schema is stb.<location-name>.loc.swiftnetworks.com.au
+	bits := strings.Split(result.Client, ".")
+	if "stb" == bits[0] {
+		result.client_short_name = fmt.Sprintf("%s.%s", bits[0], bits[1])
+	} else {
+		result.client_short_name = bits[0]
+	}
+
+	result.Check.Name = check_name
+	result.Check.Address, _ = clientConfig.Get("address").String()
+	result.Check.Executed = uint(time.Now().Unix())
+	result.Check.Handlers = make([]string, 1)
+	result.Check.Handlers[0] = "metrics"
+	result.Check.CheckType = "metric"
+	result.Check.Standalone = true
+	result.Check.Status = 0
+
+	result.Check.started = time.Now()
+
+	return result
+}
+
 func (r *Result) SetOutput(output string) {
 	r.Check.Output = output
 }
@@ -68,32 +95,6 @@ func (r *Result) SetType(checktype string) {
 	r.Check.CheckType = checktype
 }
 
-func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
-	result := new(Result)
-
-	result.Client, _ = clientConfig.Get("name").String()
-	// host name schema is stb.<location-name>.loc.swiftnetworks.com.au
-	bits := strings.Split(result.Client, ".")
-	if "stb" == bits[0] {
-		result.client_short_name = fmt.Sprintf("%s.%s", bits[0], bits[1])
-	} else {
-		result.client_short_name = bits[0]
-	}
-
-	result.Check.Name = check_name
-	result.Check.Address, _ = clientConfig.Get("address").String()
-	result.Check.Executed = uint(time.Now().Unix())
-	result.Check.Handlers = make([]string, 1)
-	result.Check.Handlers[0] = "metrics"
-	result.Check.CheckType = "metric"
-	result.Check.Standalone = true
-	result.Check.Status = 0
-
-	result.Check.started = time.Now()
-
-	return result
-}
-
 func (r *Result) calculate_duration() {
 	var duration = time.Now().Sub(r.Check.started)
 	r.Check.Duration = duration.Seconds()
@@ -108,7 +109,7 @@ func (result *Result) toJson() []byte {
 	if nil != err {
 		log.Panic(err)
 	}
-	log.Printf(string(json))
+	//log.Printf(string(json)) // handy json debug printing
 	return json
 }
 

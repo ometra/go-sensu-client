@@ -56,9 +56,37 @@ func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, e
 			log.Printf("Could not get CPU Freq for CPU %d: %s", i, err)
 		}
 
-		payload += fmt.Sprintf("%s.cpu.frequency.current.cpu%d %d %d\n", short_name, i, cpu.frequency[i], timestamp)
+		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency %d %d\n", short_name, i, cpu.frequency[i], timestamp)
 	}
 	payload += fmt.Sprintf("%s.cpu.cpu_count %d %d\n", short_name, cpu.cpu_count, timestamp)
+
+	// now time to get the stats
+	file, err := ioutil.ReadFile("/proc/stat")
+	if nil != err {
+		return payload, err
+	}
+
+	cpu_metrics := []string{"user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal", "guest"}
+	//other_metrics := []string{"ctxt", "processes", "procs_running", "procs_blocked", "btime", "intr"}
+
+	lines := strings.Split(string(file), "\n")
+	for _, line := range lines {
+		fields := strings.Split(line, " ")
+		if len(fields[0]) >= 3 && "cpu" == fields[0][0:3] {
+			name := fields[0]
+			if name == "cpu" {
+				name = "total"
+			}
+
+			for i, field := range cpu_metrics {
+				payload += fmt.Sprintf("%s.cpu.%s.%s %s %d\n", short_name, name, field, fields[i+1], timestamp)
+			}
+		}
+		switch fields[0] {
+		case "ctxt", "processes", "procs_running", "procs_blocked", "btime", "intr":
+			payload += fmt.Sprintf("%s.cpu.%s %s %d\n", short_name, fields[0], fields[1], timestamp)
+		}
+	}
 
 	return payload, nil
 }

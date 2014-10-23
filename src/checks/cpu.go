@@ -21,11 +21,11 @@ type CpuStats struct {
 }
 
 func (cpu *CpuStats) Init(config *sensu.Config) (string, error) {
-	return "cpu", cpu.setup() // os dependent part
+	return "cpu_metrics", cpu.setup() // os dependent part
 }
 
 func (cpu *CpuStats) Gather(r *Result) error {
-	r.SetCommand("cpu-freq-metrics.rb")
+	r.SetCommand("cpu-metrics.rb")
 	output, err := cpu.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err

@@ -18,7 +18,7 @@ import (
 type NetworkInterfaceStats struct{}
 
 func (iface *NetworkInterfaceStats) Init(config *sensu.Config) (string, error) {
-	return "network", nil
+	return "interface_metrics", nil
 }
 
 func (iface *NetworkInterfaceStats) Gather(r *Result) error {

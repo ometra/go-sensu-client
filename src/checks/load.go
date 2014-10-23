@@ -18,7 +18,7 @@ import (
 type LoadStats struct{}
 
 func (load *LoadStats) Init(config *sensu.Config) (string, error) {
-	return "load", nil
+	return "load_metrics", nil
 }
 
 func (load *LoadStats) Gather(r *Result) error {
