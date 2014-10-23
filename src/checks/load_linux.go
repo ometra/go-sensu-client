@@ -1,15 +1,15 @@
 package checks
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
-	"fmt"
 )
 
 // PLATFORMS
 //   Linux
 
-func (load *LoadStats) createLoadAveragePayload(short_name string, timestamp uint) (string, error) {
+func (load *LoadStats) createPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
 	content, err := ioutil.ReadFile("/proc/loadavg")
 	if nil != err {

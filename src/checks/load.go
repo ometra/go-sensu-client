@@ -23,7 +23,7 @@ func (load *LoadStats) Init(config *sensu.Config) (string, error) {
 
 func (load *LoadStats) Gather(r *Result) error {
 	r.SetCommand("load-metrics.rb")
-	output, err := load.createLoadAveragePayload(r.ShortName(), r.StartTime())
+	output, err := load.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err
 }

@@ -1,16 +1,15 @@
 package checks
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"strconv"
-	"fmt"
+	"strings"
 )
 
 // PLATFORMS
 //   Linux
-
 
 func (cpu *CpuStats) setup() error {
 
@@ -39,7 +38,7 @@ func (cpu *CpuStats) setup() error {
 	return nil
 }
 
-func (cpu *CpuStats) createCpuFreqPayload(short_name string, timestamp uint) (string, error) {
+func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
 	// now inject our data
 	for i := 0; i < cpu.cpu_count; i++ {
@@ -54,7 +53,7 @@ func (cpu *CpuStats) createCpuFreqPayload(short_name string, timestamp uint) (st
 			}
 		} else {
 			return payload, err
-			log.Printf("Could not get CPU Freq for CPU %d: %s",i, err)
+			log.Printf("Could not get CPU Freq for CPU %d: %s", i, err)
 		}
 
 		payload += fmt.Sprintf("%s.cpu.frequency.current.cpu%d %d %d\n", short_name, i, cpu.frequency[i], timestamp)

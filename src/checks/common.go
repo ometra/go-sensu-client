@@ -5,6 +5,7 @@ import (
 	amqp "github.com/streadway/amqp"
 	//	"fmt"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -63,12 +64,21 @@ func (r *Result) SetCommand(command string) {
 	r.Check.Command = command
 }
 
+func (r *Result) SetType(checktype string) {
+	r.Check.CheckType = checktype
+}
+
 func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
 	result := new(Result)
 
 	result.Client, _ = clientConfig.Get("name").String()
+	// host name schema is stb.<location-name>.loc.swiftnetworks.com.au
 	bits := strings.Split(result.Client, ".")
-	result.client_short_name = bits[0]
+	if "stb" == bits[0] {
+		result.client_short_name = fmt.Sprintf("%s.%s", bits[0], bits[1])
+	} else {
+		result.client_short_name = bits[0]
+	}
 
 	result.Check.Name = check_name
 	result.Check.Address, _ = clientConfig.Get("address").String()

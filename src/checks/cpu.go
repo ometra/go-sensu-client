@@ -26,7 +26,7 @@ func (cpu *CpuStats) Init(config *sensu.Config) (string, error) {
 
 func (cpu *CpuStats) Gather(r *Result) error {
 	r.SetCommand("cpu-freq-metrics.rb")
-	output, err := cpu.createCpuFreqPayload(r.ShortName(), r.StartTime())
+	output, err := cpu.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err
 }
