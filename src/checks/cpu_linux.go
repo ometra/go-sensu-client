@@ -47,7 +47,7 @@ func (cpu *CpuStats) getCpuValue(file string) uint64 {
 		value, err = strconv.ParseUint(string(content), 10, 64)
 		if nil != err {
 			cpu.failed_freq_gather_count++
-			log.Printf("Failed to convert '%s' to an int", string(content))
+			log.Printf("Failed to convert '%s' to an int", strings.Trim(string(content), "\n "))
 		}
 	} else {
 		cpu.failed_freq_gather_count++
