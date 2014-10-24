@@ -1,2 +1,4 @@
 .idea/
 bin/sensu-client*
+pkg/*
+src/github.com/*
