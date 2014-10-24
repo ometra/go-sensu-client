@@ -40,8 +40,8 @@ func (cpu *CpuStats) setup() error {
 }
 
 func (cpu *CpuStats) getCpuValue(file string) uint64 {
-	file, err := ioutil.ReadFile(file)
-	content := strings.Trim(string(content), "\n ")
+	file_content, err := ioutil.ReadFile(file)
+	content := strings.Trim(string(file_content), "\n ")
 
 	var value uint64 = 0
 	if nil == err {
