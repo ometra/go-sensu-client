@@ -40,14 +40,16 @@ func (cpu *CpuStats) setup() error {
 }
 
 func (cpu *CpuStats) getCpuValue(file string) uint64 {
-	content, err := ioutil.ReadFile(file)
+	file, err := ioutil.ReadFile(file)
+	content := strings.Trim(string(content), "\n ")
+
 	var value uint64 = 0
 	if nil == err {
 		// we have content!
-		value, err = strconv.ParseUint(string(content), 10, 64)
+		value, err = strconv.ParseUint(content, 10, 64)
 		if nil != err {
 			cpu.failed_freq_gather_count++
-			log.Printf("Failed to convert '%s' to an int", strings.Trim(string(content), "\n "))
+			log.Printf("Failed to convert '%s' to an int", content)
 		}
 	} else {
 		cpu.failed_freq_gather_count++
