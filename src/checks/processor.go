@@ -115,8 +115,10 @@ func (p *Processor) publish() {
 	for {
 		select {
 		case result := <-p.results:
-			if err := p.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
-				log.Printf("Error Publishing Stats: %v. %v", err, result)
+			if result.HasOutput() {
+				if err := p.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
+					log.Printf("Error Publishing Stats: %v. %v", err, result)
+				}
 			}
 		case <-p.close:
 			return

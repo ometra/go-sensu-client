@@ -71,6 +71,10 @@ func (r *Result) SetOutput(output string) {
 	r.Check.Output = output
 }
 
+func (r *Result) HasOutput() bool {
+	return "" != r.Check.Output
+}
+
 func (r *Result) SetInterval(interval time.Duration) {
 	r.Check.Interval = int(interval / time.Second)
 }

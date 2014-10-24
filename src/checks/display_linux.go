@@ -12,9 +12,13 @@ import (
 
 func (display *DisplayStats) createPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
+	if !display.continue_gathering {
+		return payload, nil
+	}
 	content, err := ioutil.ReadFile("/sys/class/switch/hdmi/state")
 	if nil != err {
 		log.Printf("Failed to read HDMI State. %s", err)
+		display.continue_gathering = false
 		return payload, nil
 	}
 
