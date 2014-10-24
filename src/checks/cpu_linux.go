@@ -33,7 +33,8 @@ func (cpu *CpuStats) setup() error {
 			}
 		}
 	}
-	cpu.frequency = make(map[int]int, cpu.cpu_count)
+
+	cpu.gather_frequency_stats = true
 
 	return nil
 }
@@ -45,9 +46,11 @@ func (cpu *CpuStats) getCpuValue(file string) uint64 {
 		// we have content!
 		value, err = strconv.ParseUint(string(content), 10, 64)
 		if nil != err {
+			cpu.failed_freq_gather_count++
 			log.Printf("Failed to convert '%s' to an int", string(content))
 		}
 	} else {
+		cpu.failed_freq_gather_count++
 		log.Printf("Unable to read file: %s. %s", file, err)
 	}
 	return value
@@ -56,18 +59,24 @@ func (cpu *CpuStats) getCpuValue(file string) uint64 {
 func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
 	var speed uint64
-	// grab our frequency stats
-	for i := 0; i < cpu.cpu_count; i++ {
-		cpu.frequency[i] = 0
-		// attempt to load the file
-		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq", i))
-		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.current %d %d\n", short_name, i, speed, timestamp)
 
-		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i))
-		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.max %d %d\n", short_name, i, speed, timestamp)
+	if cpu.gather_frequency_stats {
+		// grab our frequency stats
+		for i := 0; i < cpu.cpu_count; i++ {
+			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq", i))
+			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.current %d %d\n", short_name, i, speed, timestamp)
 
-		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_min_freq", i))
-		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.min %d %d\n", short_name, i, speed, timestamp)
+			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i))
+			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.max %d %d\n", short_name, i, speed, timestamp)
+
+			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_min_freq", i))
+			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.min %d %d\n", short_name, i, speed, timestamp)
+		}
+
+		if cpu.failed_freq_gather_count >= cpu.cpu_count {
+			cpu.gather_frequency_stats = false
+			log.Printf("Failed gathering CPU Frequency Stats. Disabling future freq gathering.")
+		}
 	}
 	payload += fmt.Sprintf("%s.cpu.cpu_count %d %d\n", short_name, cpu.cpu_count, timestamp)
 
