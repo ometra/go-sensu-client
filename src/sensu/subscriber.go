@@ -12,8 +12,13 @@ type Subscriber struct {
 }
 
 func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
-	log.Printf("Declaring Queue")
-	queue, err := q.QueueDeclare("")
+
+	config_name, _ := c.Data().Get("client").Get("name").String()
+	config_ver, _ := c.Data().Get("client").Get("version").String()
+
+	queue_name := config_name + "-" + config_ver
+	log.Printf("Declaring Queue: %s", queue_name)
+	queue, err := q.QueueDeclare(queue_name)
 	if err != nil {
 		return fmt.Errorf("Queue Declare: %s", err)
 	}
@@ -32,7 +37,7 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 			return fmt.Errorf("Exchange Declare: %s", err)
 		}
 
-		log.Printf("binding to Exchange %q", sub)
+		log.Printf("binding %s to Exchange %q", queue.Name, sub)
 		err = q.QueueBind(queue.Name, "", sub)
 		if err != nil {
 			return fmt.Errorf("Queue Bind: %s", err)

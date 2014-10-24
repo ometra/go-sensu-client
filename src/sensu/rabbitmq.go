@@ -72,7 +72,7 @@ func (r *Rabbitmq) ExchangeDeclare(name, kind string) error {
 
 func (r *Rabbitmq) QueueDeclare(name string) (amqp.Queue, error) {
 	return r.channel.QueueDeclare(
-		"",
+		name,
 		false,
 		true,
 		false,
