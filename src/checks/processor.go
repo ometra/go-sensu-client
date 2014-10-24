@@ -41,6 +41,7 @@ func NewProcessor() *Processor {
 	proc.AddJob(new(LoadStats))
 	proc.AddJob(new(NetworkInterfaceStats))
 	proc.AddJob(new(MemoryStats))
+	proc.AddJob(new(DisplayStats))
 	return proc
 }
 
