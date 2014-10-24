@@ -2,3 +2,4 @@
 bin/sensu-client*
 pkg/*
 src/github.com/*
+src/config/config.json

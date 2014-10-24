@@ -38,36 +38,46 @@ func (cpu *CpuStats) setup() error {
 	return nil
 }
 
+func (cpu *CpuStats) getCpuValue(file string) uint64 {
+	content, err := ioutil.ReadFile(file)
+	var value uint64 = 0
+	if nil == err {
+		// we have content!
+		value, err = strconv.ParseUint(string(content), 10, 64)
+		if nil != err {
+			log.Printf("Failed to convert '%s' to an int", string(content))
+		}
+	} else {
+		log.Printf("Unable to read file: %s. %s", file, err)
+	}
+	return value
+}
+
 func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, error) {
 	var payload string
-	// now inject our data
+	var speed uint64
+	// grab our frequency stats
 	for i := 0; i < cpu.cpu_count; i++ {
 		cpu.frequency[i] = 0
 		// attempt to load the file
-		content, err := ioutil.ReadFile(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq", i))
-		if nil == err {
-			// we have content!
-			cpu.frequency[i], err = strconv.Atoi(strings.Trim(string(content), "\n"))
-			if nil != err {
-				log.Printf("Failed to convert '%s' to an int", string(content))
-			}
-		} else {
-			return payload, err
-			log.Printf("Could not get CPU Freq for CPU %d: %s", i, err)
-		}
+		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq", i))
+		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.current %d %d\n", short_name, i, speed, timestamp)
 
-		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency %d %d\n", short_name, i, cpu.frequency[i], timestamp)
+		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i))
+		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.max %d %d\n", short_name, i, speed, timestamp)
+
+		speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_min_freq", i))
+		payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.min %d %d\n", short_name, i, speed, timestamp)
 	}
 	payload += fmt.Sprintf("%s.cpu.cpu_count %d %d\n", short_name, cpu.cpu_count, timestamp)
 
-	// now time to get the stats
+	// now time to get the CPU stats
 	file, err := ioutil.ReadFile("/proc/stat")
 	if nil != err {
 		return payload, err
 	}
 
 	cpu_metrics := []string{"user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal", "guest"}
-	//other_metrics := []string{"ctxt", "processes", "procs_running", "procs_blocked", "btime", "intr"}
 
 	lines := strings.Split(string(file), "\n")
 	for _, line := range lines {

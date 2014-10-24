@@ -16,8 +16,8 @@ import (
 //   Linux
 
 type CpuStats struct {
-	frequency map[int]int
-	cpu_count int
+	gather_frequency_stats bool
+	cpu_count              int
 }
 
 func (cpu *CpuStats) Init(config *sensu.Config) (string, error) {
