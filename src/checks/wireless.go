@@ -15,10 +15,13 @@ import (
 // PLATFORMS
 //   Linux
 
-type WirelessStats struct{}
+type WirelessStats struct {
+	files   []string
+	exclude []string
+}
 
 func (ws *WirelessStats) Init(config *sensu.Config) (string, error) {
-	return "wireless_metrics", nil
+	return "wireless_metrics", ws.setup()
 }
 
 func (ws *WirelessStats) Gather(r *Result) error {

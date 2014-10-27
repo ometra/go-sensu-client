@@ -25,7 +25,7 @@ type Processor struct {
 func (p *Processor) AddJob(job SensuCheckOrMetric) {
 	name, err := job.Init(p.config)
 	if nil != err {
-		log.Printf("Failed to initialise check: %s\n", name)
+		log.Printf("Failed to initialise check: (%s) %s\n", name, err)
 		return
 	}
 	log.Printf("Adding job: %s", name)
@@ -42,6 +42,7 @@ func NewProcessor() *Processor {
 	proc.AddJob(new(NetworkInterfaceStats))
 	proc.AddJob(new(MemoryStats))
 	proc.AddJob(new(DisplayStats))
+	proc.AddJob(new(WirelessStats))
 	return proc
 }
 
