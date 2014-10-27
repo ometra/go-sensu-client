@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // CPU Status for Linux based machines
 //
@@ -21,7 +19,7 @@ type CpuStats struct {
 	cpu_count                int
 }
 
-func (cpu *CpuStats) Init(config *sensu.Config) (string, error) {
+func (cpu *CpuStats) Init(config checkConfigType) (string, error) {
 	return "cpu_metrics", cpu.setup() // os dependent part
 }
 

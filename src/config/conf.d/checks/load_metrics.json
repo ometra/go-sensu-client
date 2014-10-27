@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "load_metrics": {
+      "type": "metric",
+      "command": "load-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 15
+    }
+  }
+}

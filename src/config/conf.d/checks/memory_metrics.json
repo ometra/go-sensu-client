@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "memory_metrics": {
+      "type": "metric",
+      "command": "memory-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 15
+    }
+  }
+}

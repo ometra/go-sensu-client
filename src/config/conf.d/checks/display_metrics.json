@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "display_metrics": {
+      "type": "metric",
+      "command": "display-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 15
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "uptime_metrics": {
+      "type": "metric",
+      "command": "uptime-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    }
+  }
+}

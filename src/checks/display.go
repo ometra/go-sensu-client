@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // Display Status for Linux based machines
 //
@@ -19,7 +17,7 @@ type DisplayStats struct {
 	continue_gathering bool
 }
 
-func (display *DisplayStats) Init(config *sensu.Config) (string, error) {
+func (display *DisplayStats) Init(config checkConfigType) (string, error) {
 	display.continue_gathering = true
 	return "display_metrics", nil
 }

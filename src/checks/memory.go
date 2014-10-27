@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // Memory Stats for Linux based machines
 //
@@ -17,7 +15,7 @@ import (
 
 type MemoryStats struct{}
 
-func (mem *MemoryStats) Init(config *sensu.Config) (string, error) {
+func (mem *MemoryStats) Init(config checkConfigType) (string, error) {
 	return "memory_metrics", nil
 }
 

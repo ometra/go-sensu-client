@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // wireless network station stats for Linux based machines
 //
@@ -20,7 +18,7 @@ type WirelessStats struct {
 	exclude []string
 }
 
-func (ws *WirelessStats) Init(config *sensu.Config) (string, error) {
+func (ws *WirelessStats) Init(config checkConfigType) (string, error) {
 	return "wireless_metrics", ws.setup()
 }
 

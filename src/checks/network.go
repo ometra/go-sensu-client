@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // network interfaces stats for Linux based machines
 //
@@ -17,7 +15,7 @@ import (
 
 type NetworkInterfaceStats struct{}
 
-func (iface *NetworkInterfaceStats) Init(config *sensu.Config) (string, error) {
+func (iface *NetworkInterfaceStats) Init(config checkConfigType) (string, error) {
 	return "interface_metrics", nil
 }
 

@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "interface_metrics": {
+      "type": "metric",
+      "command": "interface-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 15
+    }
+  }
+}

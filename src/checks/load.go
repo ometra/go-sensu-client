@@ -1,8 +1,6 @@
 package checks
 
-import (
-	"sensu"
-)
+import ()
 
 // CPU Status for Linux based machines
 //
@@ -17,7 +15,7 @@ import (
 
 type LoadStats struct{}
 
-func (load *LoadStats) Init(config *sensu.Config) (string, error) {
+func (load *LoadStats) Init(config checkConfigType) (string, error) {
 	return "load_metrics", nil
 }
 
