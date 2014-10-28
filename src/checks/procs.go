@@ -30,6 +30,9 @@ type ProcessCheck struct {
 	cpuTimeMoreThan, cpuTimeLessThan           int
 }
 
+type process struct {
+}
+
 func (pc *ProcessCheck) Init(config CheckConfigType) (string, error) {
 	pc.flags = flag.NewFlagSet("process-check", flag.ContinueOnError)
 
@@ -46,8 +49,8 @@ func (pc *ProcessCheck) Init(config CheckConfigType) (string, error) {
 	pc.addFlag("r", "-resident-set-size", "Trigger on a Resident Set size is bigger than this", &pc.rssErrorOver, 0)
 	pc.addFlag("P", "-proportional-set-size", "Trigger on a Proportional Set Size is bigger than this", &pc.pcpuErrorOver, 0)
 	pc.addFlag("T", "-thread-count", "Trigger on a Thread Count is bigger than this", &pc.threadsErrOver, 0)
-	pc.addFlag("s", "-state", "Trigger on a specific state, example: Z for zombie", &pc.processState, "")
-	pc.addFlag("u", "-user", "Trigger on a specific user", &pc.user, "")
+	pc.addFlag("s", "-state", "Trigger on a specific state, example: Z for zombie. Comma seperated list", &pc.processState, "")
+	pc.addFlag("u", "-user", "Trigger on a specific user. Comma seperated list", &pc.user, "")
 	pc.addFlag("e", "-esec-over", "Match processes that older that this, in SECONDS", &pc.processessOlderThan, 0)
 	pc.addFlag("E", "-esec-under", "Match process that are younger than this, in SECONDS", &pc.processessYoungerThan, 0)
 	pc.addFlag("i", "-cpu-over", "Match processes cpu time that is older than this, in SECONDS", &pc.cpuTimeMoreThan, 0)
