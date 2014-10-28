@@ -5,19 +5,21 @@ import (
 	"log"
 	"sensu"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // executes the configured checks at the configured intervals
 
 type SensuCheckOrMetric interface {
-	Init(checkConfigType) (name string, err error)
+	Init(CheckConfigType) (name string, err error)
 	Gather(*Result) error
 }
 
-type checkConfigType struct {
+type CheckConfigType struct {
 	Type       string
 	Command    string
+	Args       []string
 	Handlers   []string
 	Standalone bool
 	Interval   time.Duration
@@ -27,7 +29,7 @@ type Processor struct {
 	q          sensu.MessageQueuer
 	config     *sensu.Config
 	jobs       map[string]SensuCheckOrMetric
-	jobsConfig map[string]checkConfigType
+	jobsConfig map[string]CheckConfigType
 	close      chan bool
 	results    chan *Result
 }
@@ -46,19 +48,25 @@ var builtInChecksAndMetrics = map[string]SensuCheckOrMetric{
 func NewProcessor() *Processor {
 	proc := new(Processor)
 	proc.jobs = make(map[string]SensuCheckOrMetric)
-	proc.jobsConfig = make(map[string]checkConfigType)
+	proc.jobsConfig = make(map[string]CheckConfigType)
 	proc.results = make(chan *Result, 500) // queue of 500 buffered results
 
 	return proc
 }
 
-func newCheckConfig(json interface{}) checkConfigType {
-	var conf checkConfigType
+func newCheckConfig(json interface{}) CheckConfigType {
+	var conf CheckConfigType
 
 	converted := json.(map[string]interface{})
 
 	if command, ok := converted["command"]; ok {
 		conf.Command, _ = command.(string)
+	}
+
+	if args, ok := converted["args"]; ok {
+		conf.Args, _ = args.([]string)
+	} else {
+		conf.Args = strings.Split(conf.Command, " ")
 	}
 
 	if handlers, ok := converted["handlers"]; ok {
@@ -92,7 +100,7 @@ func newCheckConfig(json interface{}) checkConfigType {
 }
 
 // helper function to add a check to the queue of checks
-func (p *Processor) AddJob(job SensuCheckOrMetric, checkConfig checkConfigType) {
+func (p *Processor) AddJob(job SensuCheckOrMetric, checkConfig CheckConfigType) {
 	name, err := job.Init(checkConfig)
 	if nil != err {
 		log.Printf("Failed to initialise check: (%s) %s\n", name, err)
@@ -146,12 +154,15 @@ func (p *Processor) Start() {
 	// start our result publisher thread
 	for job_name, job := range p.jobs {
 		go func(theJobName string, theJob SensuCheckOrMetric) {
+			config := p.jobsConfig[job_name]
+
 			log.Printf("Starting job: %s", theJobName)
 			reset := make(chan bool)
 
 			timer := time.AfterFunc(0, func() {
 				log.Printf("Gathering: %s", theJobName)
 				result := NewResult(p.config.Data().Get("client"), theJobName)
+				result.SetCommand(config.Command)
 				err := theJob.Gather(result)
 				if nil != err {
 					// returned an error - we should stop this job from running
@@ -170,7 +181,7 @@ func (p *Processor) Start() {
 				select {
 				case cont := <-reset:
 					if cont {
-						timer.Reset(p.jobsConfig[job_name].Interval * time.Second) // need to grab this from the config - defaulting for 15 seconds
+						timer.Reset(config.Interval * time.Second) // need to grab this from the config - defaulting for 15 seconds
 					} else {
 						timer.Stop()
 					}

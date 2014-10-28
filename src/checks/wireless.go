@@ -18,13 +18,11 @@ type WirelessStats struct {
 	exclude []string
 }
 
-func (ws *WirelessStats) Init(config checkConfigType) (string, error) {
+func (ws *WirelessStats) Init(config CheckConfigType) (string, error) {
 	return "wireless_metrics", ws.setup()
 }
 
 func (ws *WirelessStats) Gather(r *Result) error {
-	r.SetCommand("wireless-metrics.rb")
-
 	output, err := ws.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err

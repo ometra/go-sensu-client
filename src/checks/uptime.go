@@ -16,13 +16,11 @@ import ()
 type UptimeStats struct {
 }
 
-func (u *UptimeStats) Init(config checkConfigType) (string, error) {
+func (u *UptimeStats) Init(config CheckConfigType) (string, error) {
 	return "uptime_metrics", nil
 }
 
 func (u *UptimeStats) Gather(r *Result) error {
-	r.SetCommand("uptime-metrics.rb")
-
 	output, err := u.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err

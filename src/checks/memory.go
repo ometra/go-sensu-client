@@ -15,12 +15,11 @@ import ()
 
 type MemoryStats struct{}
 
-func (mem *MemoryStats) Init(config checkConfigType) (string, error) {
+func (mem *MemoryStats) Init(config CheckConfigType) (string, error) {
 	return "memory_metrics", nil
 }
 
 func (mem *MemoryStats) Gather(r *Result) error {
-	r.SetCommand("memory-metrics.rb")
 	output, err := mem.createPayload(r.ShortName(), r.StartTime())
 	r.SetOutput(output)
 	return err
