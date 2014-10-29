@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var check = checks.CheckConfigType{
+var the_check = checks.CheckConfigType{
 	Type:       "check",
 	Command:    "",
 	Handlers:   []string{},
@@ -21,9 +21,9 @@ var check = checks.CheckConfigType{
 func main() {
 	procCheck := new(checks.ProcessCheck)
 
-	check.Command = strings.Join(os.Args, " ")
-	check.Args = os.Args
-	procCheck.Init(check)
+	the_check.Command = strings.Join(os.Args, " ")
+	the_check.Args = os.Args
+	procCheck.Init(the_check)
 	if procCheck.ShowHelp {
 		procCheck.Usage()
 	} else {

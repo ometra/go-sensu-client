@@ -41,7 +41,7 @@ type process struct {
 	pcpu                 float64
 	cpuTime, processTime int // in seconds
 
-	state, user string
+	state, uid, user string
 }
 
 func (pc *ProcessCheck) Init(config CheckConfigType) (string, error) {

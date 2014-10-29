@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -90,9 +91,14 @@ func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, e
 
 	cpu_metrics := []string{"user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal", "guest"}
 
+	r, err := regexp.Compile("\\s+")
+	if nil != err {
+		log.Printf("Failed to compile regex! %s", err)
+	}
+
 	lines := strings.Split(string(file), "\n")
 	for _, line := range lines {
-		fields := strings.Split(line, " ")
+		fields := r.Split(line, 12)
 		if len(fields[0]) >= 3 && "cpu" == fields[0][0:3] {
 			name := fields[0]
 			if name == "cpu" {

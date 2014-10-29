@@ -141,7 +141,7 @@ func (result *Result) toJson() []byte {
 	if nil != err {
 		log.Panic(err)
 	}
-	//log.Printf(string(json)) // handy json debug printing
+	log.Printf(string(json)) // handy json debug printing
 	return json
 }
 

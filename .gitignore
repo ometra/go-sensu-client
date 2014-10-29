@@ -1,5 +1,6 @@
 .idea/
 bin/sensu-client*
+bin/check-procs
 pkg/*
 src/github.com/*
 src/config/config.json
