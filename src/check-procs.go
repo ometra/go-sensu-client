@@ -23,10 +23,12 @@ func main() {
 
 	check.Command = strings.Join(os.Args, " ")
 	check.Args = os.Args
-	if len(check.Args) <= 1 {
+	procCheck.Init(check)
+	if procCheck.ShowHelp {
 		procCheck.Usage()
 	} else {
-		procCheck.Init(check)
-		fmt.Printf("%+v\n", procCheck)
+		r := new(checks.Result)
+		procCheck.Gather(r)
+		fmt.Println(r.Output())
 	}
 }
