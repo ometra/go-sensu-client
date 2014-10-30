@@ -18,6 +18,7 @@ type SensuCheckOrMetric interface {
 
 type CheckConfigType struct {
 	Type       string
+	Name       string
 	Command    string
 	Args       []string
 	Handlers   []string
@@ -83,7 +84,6 @@ func newCheckConfig(json interface{}) CheckConfigType {
 			}
 		case int8, int16, int, int32, int64, uint8, uint16, uint, uint32, uint64:
 			conf.Interval = time.Duration(interval.(int64))
-			log.Println("is a typed int")
 		}
 	}
 
@@ -136,7 +136,9 @@ func (p *Processor) Init(q sensu.MessageQueuer, config *sensu.Config) error {
 		}
 
 		if check, ok := builtInChecksAndMetrics[check_type]; ok {
-			p.AddJob(check, newCheckConfig(checkConfig))
+			config := newCheckConfig(checkConfig)
+			config.Name = check_type
+			p.AddJob(check, config)
 		} else {
 			// check not built in
 			log.Printf("External Check: %s", check_type)
