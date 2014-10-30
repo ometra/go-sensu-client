@@ -30,6 +30,6 @@ func main() {
 	} else {
 		r := new(plugins.Result)
 		procCheck.Gather(r)
-		fmt.Println(r.Output())
+		fmt.Printf("%s: %s\n", procCheck.GetStatus(), strings.Join(r.Output(), ""))
 	}
 }

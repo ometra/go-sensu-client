@@ -77,6 +77,16 @@ func TestExcludeProcs(t *testing.T) {
 		t.Errorf("Failed to exclude a process by regex, expect 1 result, got %d.", testLen)
 	}
 
+	// do a "vsz is more than" check
+	the_check.Args = []string{"cmd", "-z", "3000000"}
+	pc.Init(the_check)
+
+	testList = pc.excludeProcesses(matchlist)
+	testLen = len(testList)
+	if 1 != testLen {
+		t.Errorf("Failed to get the virtually fat process, expect 1 result, got %d.", testLen)
+	}
+
 }
 
 func getProc() process {
@@ -84,7 +94,7 @@ func getProc() process {
 		pid:         os.Getpid(),
 		ppid:        os.Getppid(),
 		command:     "moo --is --you",
-		vsz:         33912,
+		vsz:         3391200,
 		rss:         4164,
 		pcpu:        10.0,
 		threads:     65,
