@@ -1,4 +1,4 @@
-package checks
+package metrics
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"plugins"
 	"strings"
 )
 
@@ -52,8 +53,7 @@ func (ws *WirelessStats) setup() error {
 	return nil
 }
 
-func (ws *WirelessStats) createPayload(short_name string, timestamp uint) (string, error) {
-	var payload string
+func (ws *WirelessStats) createPayload(r *plugins.Result) error {
 	var counter int
 	var skip bool
 
@@ -86,7 +86,7 @@ func (ws *WirelessStats) createPayload(short_name string, timestamp uint) (strin
 		}
 	}
 
-	payload = fmt.Sprintf("%s.access_point.connected_clients %d %d\n", short_name, counter, timestamp)
+	r.Add(fmt.Sprintf("access_point.connected_clients %d", counter))
 
-	return payload, nil
+	return nil
 }

@@ -1,6 +1,8 @@
-package checks
+package metrics
 
-import ()
+import (
+	"plugins"
+)
 
 // uptime stats for Linux based machines
 //
@@ -16,12 +18,14 @@ import ()
 type UptimeStats struct {
 }
 
-func (u *UptimeStats) Init(config CheckConfigType) (string, error) {
+func (u *UptimeStats) Init(config plugins.PluginConfig) (string, error) {
 	return "uptime_metrics", nil
 }
 
-func (u *UptimeStats) Gather(r *Result) error {
-	output, err := u.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(output)
-	return err
+func (u *UptimeStats) Gather(r *plugins.Result) error {
+	return u.createPayload(r)
+}
+
+func (u *UptimeStats) GetStatus() string {
+	return ""
 }

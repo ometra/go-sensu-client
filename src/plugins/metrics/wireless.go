@@ -1,6 +1,8 @@
-package checks
+package metrics
 
-import ()
+import (
+	"plugins"
+)
 
 // wireless network station stats for Linux based machines
 //
@@ -18,12 +20,14 @@ type WirelessStats struct {
 	exclude []string
 }
 
-func (ws *WirelessStats) Init(config CheckConfigType) (string, error) {
+func (ws *WirelessStats) Init(config plugins.PluginConfig) (string, error) {
 	return "wireless_metrics", ws.setup()
 }
 
-func (ws *WirelessStats) Gather(r *Result) error {
-	output, err := ws.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(output)
-	return err
+func (ws *WirelessStats) Gather(r *plugins.Result) error {
+	return ws.createPayload(r)
+}
+
+func (ws *WirelessStats) GetStatus() string {
+	return ""
 }

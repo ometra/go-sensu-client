@@ -4,13 +4,14 @@ package main
 // as a stand alone function
 
 import (
-	"checks"
 	"fmt"
 	"os"
+	"plugins"
+	"plugins/checks"
 	"strings"
 )
 
-var the_check = checks.CheckConfigType{
+var the_check = plugins.PluginConfig{
 	Type:       "check",
 	Command:    "",
 	Handlers:   []string{},
@@ -27,7 +28,7 @@ func main() {
 	if procCheck.ShowHelp {
 		procCheck.Usage()
 	} else {
-		r := new(checks.Result)
+		r := new(plugins.Result)
 		procCheck.Gather(r)
 		fmt.Println(r.Output())
 	}

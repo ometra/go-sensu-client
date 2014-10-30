@@ -1,17 +1,18 @@
-package checks
+package metrics
 
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"plugins"
 	"strings"
 )
 
-func (iface *NetworkInterfaceStats) createPayload(short_name string, timestamp uint) (string, error) {
+func (iface *NetworkInterfaceStats) createPayload(r *plugins.Result) error {
 	// grab all the stats in /sys/class/net/<interface>/statistics/*
 	base_path := "/sys/class/net/"
-	var output string
+
 	interface_err := filepath.Walk(base_path, func(interface_path string, interface_info os.FileInfo, err error) error {
 		if base_path == interface_path {
 			return nil // no need to read the base path
@@ -27,12 +28,12 @@ func (iface *NetworkInterfaceStats) createPayload(short_name string, timestamp u
 				return err
 			}
 
-			output += fmt.Sprintf("%s.interface.%s.%s %s %d\n", short_name, interface_info.Name(), file_info.Name(), strings.Trim(string(value), " \n\t"), timestamp)
+			r.Add(fmt.Sprintf("interface.%s.%s %s", interface_info.Name(), file_info.Name(), strings.Trim(string(value), " \n\t")))
 			return nil
 		})
 
 		return file_err
 	})
 
-	return output, interface_err
+	return interface_err
 }

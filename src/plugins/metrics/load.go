@@ -1,6 +1,8 @@
-package checks
+package metrics
 
-import ()
+import (
+	"plugins"
+)
 
 // CPU Status for Linux based machines
 //
@@ -15,12 +17,14 @@ import ()
 
 type LoadStats struct{}
 
-func (load *LoadStats) Init(config CheckConfigType) (string, error) {
+func (load *LoadStats) Init(config plugins.PluginConfig) (string, error) {
 	return "load_metrics", nil
 }
 
-func (load *LoadStats) Gather(r *Result) error {
-	output, err := load.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(output)
-	return err
+func (load *LoadStats) Gather(r *plugins.Result) error {
+	return load.createPayload(r)
+}
+
+func (load *LoadStats) GetStatus() string {
+	return ""
 }

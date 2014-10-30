@@ -1,6 +1,8 @@
-package checks
+package metrics
 
-import ()
+import (
+	"plugins"
+)
 
 // CPU Status for Linux based machines
 //
@@ -13,18 +15,22 @@ import ()
 // PLATFORMS
 //   Linux
 
+const CPU_STATS_NAME = "cpu_metrics"
+
 type CpuStats struct {
 	gather_frequency_stats   bool
 	failed_freq_gather_count int
 	cpu_count                int
 }
 
-func (cpu *CpuStats) Init(config CheckConfigType) (string, error) {
-	return "cpu_metrics", cpu.setup() // os dependent part
+func (cpu *CpuStats) Init(config plugins.PluginConfig) (string, error) {
+	return CPU_STATS_NAME, cpu.setup() // os dependent part
 }
 
-func (cpu *CpuStats) Gather(r *Result) error {
-	output, err := cpu.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(output)
-	return err
+func (cpu *CpuStats) Gather(r *plugins.Result) error {
+	return cpu.createPayload(r)
+}
+
+func (cpu *CpuStats) GetStatus() string {
+	return ""
 }

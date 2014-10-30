@@ -1,6 +1,8 @@
-package checks
+package metrics
 
-import ()
+import (
+	"plugins"
+)
 
 // Memory Stats for Linux based machines
 //
@@ -15,12 +17,14 @@ import ()
 
 type MemoryStats struct{}
 
-func (mem *MemoryStats) Init(config CheckConfigType) (string, error) {
+func (mem *MemoryStats) Init(config plugins.PluginConfig) (string, error) {
 	return "memory_metrics", nil
 }
 
-func (mem *MemoryStats) Gather(r *Result) error {
-	output, err := mem.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(output)
-	return err
+func (mem *MemoryStats) Gather(r *plugins.Result) error {
+	return mem.createPayload(r)
+}
+
+func (mem *MemoryStats) GetStatus() string {
+	return ""
 }

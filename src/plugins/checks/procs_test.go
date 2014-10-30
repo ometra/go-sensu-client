@@ -3,10 +3,11 @@ package checks
 import (
 	"fmt"
 	"os"
+	"plugins"
 	"testing"
 )
 
-var the_check = CheckConfigType{
+var the_check = plugins.PluginConfig{
 	Type:       "check",
 	Command:    "",
 	Handlers:   []string{},

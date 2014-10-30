@@ -1,4 +1,4 @@
-package checks
+package sensu
 
 import (
 	simplejson "github.com/bitly/go-simplejson"
@@ -37,31 +37,8 @@ type check struct {
 type Result struct {
 	Client            string `json:"client"` // DNS Name for this host
 	client_short_name string
-	Check             check `json:"check"`
-}
-
-type Status int
-
-const (
-	OK       Status = iota
-	WARNING  Status = iota
-	CRITICAL Status = iota
-	UNKNOWN  Status = iota
-)
-
-var statusLookupTable = map[Status]string{
-	OK:       `OK`,
-	WARNING:  `WARNING`,
-	CRITICAL: `CRITICAL`,
-	UNKNOWN:  `UNKNOWN`,
-}
-
-func (s Status) ToString() string {
-	return statusLookupTable[s]
-}
-
-func (s Status) ToInt() int {
-	return int(s)
+	Check             check  `json:"check"`
+	checkStatus       string // for checks we want to know if they are critical/warning/unknown/ok
 }
 
 // sets up the common result data
@@ -91,12 +68,33 @@ func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
 	return result
 }
 
-func (r *Result) SetOutput(output string) {
-	r.Check.Output = output
+// takes each of our lines of output and prefixes the system we are checking
+// and suffixes the timestamp when we checked
+func (r *Result) SetOutput(rows []string) {
+
+	switch r.Check.CheckType {
+	case "metric":
+		for _, row := range rows {
+			r.Check.Output += fmt.Sprintf("%s.%s %d\n", r.ShortName(), row, r.StartTime())
+		}
+	case "check":
+		r.Check.Output = strings.Join(rows, "")
+	}
+}
+
+func (r *Result) SetCheckStatus(s string) {
+	r.checkStatus = s
 }
 
 func (r *Result) Output() string {
-	return r.Check.Output
+	var output string
+	switch r.Check.CheckType {
+	case "metric":
+		output = r.Check.Output
+	case "check":
+		output = r.checkStatus + ": " + r.Check.Output
+	}
+	return output
 }
 
 func (r *Result) HasOutput() bool {
@@ -151,8 +149,4 @@ func (result *Result) GetPayload() amqp.Publishing {
 		Body:         result.toJson(),
 		DeliveryMode: amqp.Transient,
 	}
-}
-
-func formatCheckPayload(checkName string, status Status, payload string) string {
-	return fmt.Sprintf("%s %s: %s", checkName, status.ToString(), payload)
 }

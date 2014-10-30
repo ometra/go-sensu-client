@@ -1,8 +1,9 @@
-package checks
+package metrics
 
 import (
 	"fmt"
 	"io/ioutil"
+	"plugins"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,17 +19,16 @@ var memoryKeys = map[string]string{
 	"Dirty":     "dirty",
 }
 
-func (mem *MemoryStats) createPayload(short_name string, timestamp uint) (string, error) {
+func (mem *MemoryStats) createPayload(r *plugins.Result) error {
 	file, err := ioutil.ReadFile("/proc/meminfo")
-	var payload string
 	memoryValues := make(map[string]int64)
 
 	if nil != err {
-		return payload, err
+		return err
 	}
 	re, err := regexp.Compile("[\\s\\:]+")
 	if nil != err {
-		return payload, err
+		return err
 	}
 
 	lines := strings.Split(string(file), "\n")
@@ -53,8 +53,8 @@ func (mem *MemoryStats) createPayload(short_name string, timestamp uint) (string
 
 	for label, value := range memoryValues {
 		// memory is reported in KB, we need Bytes - bitshift 10 is the same as *1024
-		payload += fmt.Sprintf("%s.memory.%s %d %d\n", short_name, label, value<<10, timestamp) // value<<10 == value*1024
+		r.Add(fmt.Sprintf("memory.%s %d", label, value<<10)) // value<<10 == value*1024
 	}
 
-	return payload, nil
+	return nil
 }

@@ -1,9 +1,10 @@
-package checks
+package metrics
 
 import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"plugins"
 	"regexp"
 	"strconv"
 	"strings"
@@ -59,21 +60,20 @@ func (cpu *CpuStats) getCpuValue(file string) uint64 {
 	return value
 }
 
-func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, error) {
-	var payload string
+func (cpu *CpuStats) createPayload(r *plugins.Result) error {
 	var speed uint64
 
 	if cpu.gather_frequency_stats {
 		// grab our frequency stats
 		for i := 0; i < cpu.cpu_count; i++ {
 			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_cur_freq", i))
-			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.current %d %d\n", short_name, i, speed, timestamp)
+			r.Add(fmt.Sprintf("cpu.cpu%d.frequency.current %d", i, speed))
 
 			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", i))
-			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.max %d %d\n", short_name, i, speed, timestamp)
+			r.Add(fmt.Sprintf("cpu.cpu%d.frequency.max %d", i, speed))
 
 			speed = cpu.getCpuValue(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_min_freq", i))
-			payload += fmt.Sprintf("%s.cpu.cpu%d.frequency.min %d %d\n", short_name, i, speed, timestamp)
+			r.Add(fmt.Sprintf("cpu.cpu%d.frequency.min %d", i, speed))
 		}
 
 		if cpu.failed_freq_gather_count >= cpu.cpu_count {
@@ -81,24 +81,24 @@ func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, e
 			log.Printf("Failed gathering CPU Frequency Stats. Disabling future freq gathering.")
 		}
 	}
-	payload += fmt.Sprintf("%s.cpu.cpu_count %d %d\n", short_name, cpu.cpu_count, timestamp)
+	r.Add(fmt.Sprintf("cpu.cpu_count %d", cpu.cpu_count))
 
 	// now time to get the CPU stats
 	file, err := ioutil.ReadFile("/proc/stat")
 	if nil != err {
-		return payload, err
+		return err
 	}
 
 	cpu_metrics := []string{"user", "nice", "system", "idle", "iowait", "irq", "softirq", "steal", "guest"}
 
-	r, err := regexp.Compile("\\s+")
+	regex, err := regexp.Compile("\\s+")
 	if nil != err {
 		log.Printf("Failed to compile regex! %s", err)
 	}
 
 	lines := strings.Split(string(file), "\n")
 	for _, line := range lines {
-		fields := r.Split(line, 12)
+		fields := regex.Split(line, 12)
 		if len(fields[0]) >= 3 && "cpu" == fields[0][0:3] {
 			name := fields[0]
 			if name == "cpu" {
@@ -106,14 +106,14 @@ func (cpu *CpuStats) createPayload(short_name string, timestamp uint) (string, e
 			}
 
 			for i, field := range cpu_metrics {
-				payload += fmt.Sprintf("%s.cpu.%s.%s %s %d\n", short_name, name, field, fields[i+1], timestamp)
+				r.Add(fmt.Sprintf("cpu.%s.%s %s", name, field, fields[i+1]))
 			}
 		}
 		switch fields[0] {
 		case "ctxt", "processes", "procs_running", "procs_blocked", "btime", "intr":
-			payload += fmt.Sprintf("%s.cpu.%s %s %d\n", short_name, fields[0], fields[1], timestamp)
+			r.Add(fmt.Sprintf("cpu.%s %s", fields[0], fields[1]))
 		}
 	}
 
-	return payload, nil
+	return nil
 }

@@ -1,30 +1,30 @@
-package checks
+package metrics
 
 import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"plugins"
 	"strings"
 )
 
 // PLATFORMS
 //   Linux
 
-func (display *DisplayStats) createPayload(short_name string, timestamp uint) (string, error) {
-	var payload string
+func (display *DisplayStats) createPayload(r *plugins.Result) error {
 	if !display.continue_gathering {
-		return payload, nil
+		return nil
 	}
 	content, err := ioutil.ReadFile("/sys/class/switch/hdmi/state")
 	if nil != err {
 		log.Printf("Failed to read HDMI State. %s", err)
 		display.continue_gathering = false
-		return payload, nil
+		return nil
 	}
 
 	value := strings.Trim(string(content), "\n ")
 
-	payload = fmt.Sprintf("%s.display.hdmi %s %d\n", short_name, value, timestamp)
+	r.Add(fmt.Sprintf("display.hdmi %s", value))
 
-	return payload, nil
+	return nil
 }

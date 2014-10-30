@@ -1,62 +1,48 @@
-package checks
+package sensu
 
 import (
 	"fmt"
 	"log"
-	"sensu"
+	"plugins"
+	"plugins/checks"
+	"plugins/metrics"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// executes the configured checks at the configured intervals
-
-type SensuCheckOrMetric interface {
-	Init(CheckConfigType) (name string, err error)
-	Gather(*Result) error
-}
-
-type CheckConfigType struct {
-	Type       string
-	Name       string
-	Command    string
-	Args       []string
-	Handlers   []string
-	Standalone bool
-	Interval   time.Duration
-}
-
-type Processor struct {
-	q          sensu.MessageQueuer
-	config     *sensu.Config
-	jobs       map[string]SensuCheckOrMetric
-	jobsConfig map[string]CheckConfigType
+type PluginProcessor struct {
+	q          MessageQueuer
+	config     *Config
+	jobs       map[string]plugins.SensuPluginInterface
+	jobsConfig map[string]plugins.PluginConfig
 	close      chan bool
 	results    chan *Result
 }
 
-var builtInChecksAndMetrics = map[string]SensuCheckOrMetric{
-	"cpu_metrics":         new(CpuStats),
-	"display_metrics":     new(DisplayStats),
-	"interface_metrics":   new(NetworkInterfaceStats),
-	"load_metrics":        new(LoadStats),
-	"memory_metrics":      new(MemoryStats),
-	"uptime_metrics":      new(UptimeStats),
-	"wireless-ap_metrics": new(WirelessStats),
-}
-
 // used to create a new processor instance.
-func NewProcessor() *Processor {
-	proc := new(Processor)
-	proc.jobs = make(map[string]SensuCheckOrMetric)
-	proc.jobsConfig = make(map[string]CheckConfigType)
+func NewPluginProcessor() *PluginProcessor {
+	proc := new(PluginProcessor)
+	proc.jobs = make(map[string]plugins.SensuPluginInterface)
+	proc.jobsConfig = make(map[string]plugins.PluginConfig)
 	proc.results = make(chan *Result, 500) // queue of 500 buffered results
 
 	return proc
 }
 
-func newCheckConfig(json interface{}) CheckConfigType {
-	var conf CheckConfigType
+var builtInChecksAndMetrics = map[string]plugins.SensuPluginInterface{
+	"cpu_metrics":         new(metrics.CpuStats),
+	"display_metrics":     new(metrics.DisplayStats),
+	"interface_metrics":   new(metrics.NetworkInterfaceStats),
+	"load_metrics":        new(metrics.LoadStats),
+	"memory_metrics":      new(metrics.MemoryStats),
+	"uptime_metrics":      new(metrics.UptimeStats),
+	"wireless-ap_metrics": new(metrics.WirelessStats),
+	"check_procs":         new(checks.ProcessCheck),
+}
+
+func newCheckConfig(json interface{}) plugins.PluginConfig {
+	var conf plugins.PluginConfig
 
 	converted := json.(map[string]interface{})
 
@@ -100,7 +86,7 @@ func newCheckConfig(json interface{}) CheckConfigType {
 }
 
 // helper function to add a check to the queue of checks
-func (p *Processor) AddJob(job SensuCheckOrMetric, checkConfig CheckConfigType) {
+func (p *PluginProcessor) AddJob(job plugins.SensuPluginInterface, checkConfig plugins.PluginConfig) {
 	name, err := job.Init(checkConfig)
 	if nil != err {
 		log.Printf("Failed to initialise check: (%s) %s\n", name, err)
@@ -113,7 +99,7 @@ func (p *Processor) AddJob(job SensuCheckOrMetric, checkConfig CheckConfigType) 
 }
 
 // called to set things up
-func (p *Processor) Init(q sensu.MessageQueuer, config *sensu.Config) error {
+func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 	if err := q.ExchangeDeclare(
 		RESULTS_QUEUE,
 		"direct",
@@ -150,12 +136,12 @@ func (p *Processor) Init(q sensu.MessageQueuer, config *sensu.Config) error {
 }
 
 // gets the Gather of checks/metrics going
-func (p *Processor) Start() {
+func (p *PluginProcessor) Start() {
 	go p.publish()
 
 	// start our result publisher thread
 	for job_name, job := range p.jobs {
-		go func(theJobName string, theJob SensuCheckOrMetric) {
+		go func(theJobName string, theJob plugins.SensuPluginInterface) {
 			config := p.jobsConfig[job_name]
 
 			log.Printf("Starting job: %s", theJobName)
@@ -165,7 +151,13 @@ func (p *Processor) Start() {
 				log.Printf("Gathering: %s", theJobName)
 				result := NewResult(p.config.Data().Get("client"), theJobName)
 				result.SetCommand(config.Command)
-				err := theJob.Gather(result)
+
+				presult := new(plugins.Result)
+
+				err := theJob.Gather(presult)
+				result.SetOutput(presult.Output())
+				result.SetCheckStatus(theJob.GetStatus())
+
 				if nil != err {
 					// returned an error - we should stop this job from running
 					log.Printf("Failed to gather stat: %s. %v", theJobName, err)
@@ -196,14 +188,14 @@ func (p *Processor) Start() {
 }
 
 // Puts a halt to all of our checks/metrics gathering
-func (p *Processor) Stop() {
+func (p *PluginProcessor) Stop() {
 	for i := 0; i < len(p.close); i++ {
 		p.close <- true
 	}
 }
 
-// our result publishing. will publish results until we call Processor.Stop()
-func (p *Processor) publish() {
+// our result publishing. will publish results until we call PluginProcessor.Stop()
+func (p *PluginProcessor) publish() {
 
 	for {
 		select {

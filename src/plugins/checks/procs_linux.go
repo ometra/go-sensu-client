@@ -7,92 +7,92 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"plugins"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-func (pc *ProcessCheck) createPayload(short_name string, timestamp uint) (string, error) {
-	var payload string
+func (pc *ProcessCheck) createPayload(r *plugins.Result) error {
 
 	process_list := pc.excludeProcesses(pc.gatherProcesses())
 
-	payload = fmt.Sprintf("Found %d matching processes", len(process_list))
+	r.Add(fmt.Sprintf("Found %d matching processes", len(process_list)))
 
 	if pc.commandPattern != "" {
-		payload += fmt.Sprintf("; cmd /%s/", pc.commandPattern)
+		r.Add(fmt.Sprintf("; cmd /%s/", pc.commandPattern))
 	}
 
 	if pc.processState != "" {
-		payload += fmt.Sprintf("; state %s", pc.processState)
+		r.Add(fmt.Sprintf("; state %s", pc.processState))
 	}
 
 	if pc.user != "" {
-		payload += fmt.Sprintf("; user %s", pc.user)
+		r.Add(fmt.Sprintf("; user %s", pc.user))
 	}
 
 	if pc.vszErrorOver > 0 {
-		payload += fmt.Sprintf("; vsz < %d", pc.vszErrorOver)
+		r.Add(fmt.Sprintf("; vsz < %d", pc.vszErrorOver))
 	}
 
 	if pc.rssErrorOver > 0 {
-		payload += fmt.Sprintf("; rss < %d", pc.rssErrorOver)
+		r.Add(fmt.Sprintf("; rss < %d", pc.rssErrorOver))
 	}
 
 	if pc.pcpuErrorOver > 0 {
-		payload += fmt.Sprintf("; pcpu < %d", pc.pcpuErrorOver)
+		r.Add(fmt.Sprintf("; pcpu < %d", pc.pcpuErrorOver))
 	}
 
 	if pc.threadsErrOver > 0 {
-		payload += fmt.Sprintf("; thcount < %d", pc.threadsErrOver)
+		r.Add(fmt.Sprintf("; thcount < %d", pc.threadsErrOver))
 	}
 
 	if pc.processessYoungerThan > 0 {
-		payload += fmt.Sprintf("; esec < %d", pc.processessYoungerThan)
+		r.Add(fmt.Sprintf("; esec < %d", pc.processessYoungerThan))
 	}
 
 	if pc.processessOlderThan > 0 {
-		payload += fmt.Sprintf("; esec > %d", pc.processessOlderThan)
+		r.Add(fmt.Sprintf("; esec > %d", pc.processessOlderThan))
 	}
 
 	if pc.cpuTimeLessThan > 0 {
-		payload += fmt.Sprintf("; csec < %d", pc.cpuTimeLessThan)
+		r.Add(fmt.Sprintf("; csec < %d", pc.cpuTimeLessThan))
 	}
 
 	if pc.cpuTimeMoreThan > 0 {
-		payload += fmt.Sprintf("; csec > %d", pc.cpuTimeMoreThan)
+		r.Add(fmt.Sprintf("; csec > %d", pc.cpuTimeMoreThan))
 	}
 
 	if pc.filePid != "" {
-		payload += fmt.Sprintf("; pid %s", pc.filePid)
+		r.Add(fmt.Sprintf("; pid %s", pc.filePid))
 	}
 
 	var count int
 	if pc.metric > 0 {
 		count = len(process_list)
-		payload += fmt.Sprintf("; %d == %d", pc.metric, count)
+		r.Add(fmt.Sprintf("; %d == %d", pc.metric, count))
 	} else {
 		count = len(process_list)
 	}
 
 	if pc.criticalUnder > 0 && count < pc.criticalUnder {
 		// return a critical response
-		pc.SetCheckStatus(CRITICAL)
+		pc.SetCheckStatus(plugins.CRITICAL)
 	} else if pc.criticalOver >= 0 && count > pc.criticalOver {
 		// return a critical response
-		pc.SetCheckStatus(CRITICAL)
+		pc.SetCheckStatus(plugins.CRITICAL)
 	} else if pc.warnUnder > 0 && count < pc.warnUnder {
 		// return a warning response
-		pc.SetCheckStatus(WARNING)
+		pc.SetCheckStatus(plugins.WARNING)
 	} else if pc.warnOver >= 0 && count > pc.warnOver {
 		// return a warning response
-		pc.SetCheckStatus(WARNING)
+		pc.SetCheckStatus(plugins.WARNING)
 	} else {
 		// everything is ok
-		pc.SetCheckStatus(OK)
+		pc.SetCheckStatus(plugins.OK)
 	}
 
-	return payload, nil
+	return nil
 }
 
 func (pc *ProcessCheck) excludeProcesses(list []process) []process {

@@ -3,6 +3,7 @@ package checks
 import (
 	"flag"
 	"log"
+	"plugins"
 )
 
 // Checks to see if a process is running
@@ -30,7 +31,7 @@ type ProcessCheck struct {
 	cpuTimeMoreThan, cpuTimeLessThan           int
 
 	ShowHelp    bool
-	checkStatus Status
+	checkStatus plugins.Status
 }
 
 type process struct {
@@ -44,7 +45,7 @@ type process struct {
 	state, uid, user string
 }
 
-func (pc *ProcessCheck) Init(config CheckConfigType) (string, error) {
+func (pc *ProcessCheck) Init(config plugins.PluginConfig) (string, error) {
 	pc.flags = flag.NewFlagSet("process-check", flag.ContinueOnError)
 
 	pc.addFlag("w", "-warn-over", "Trigger a warning if over a number", &pc.warnOver, -1)
@@ -94,17 +95,21 @@ func (pc *ProcessCheck) addFlag(short, long, description string, target interfac
 	}
 }
 
-func (pc *ProcessCheck) SetCheckStatus(status Status) {
+func (pc *ProcessCheck) SetCheckStatus(status plugins.Status) {
 	pc.checkStatus = status
 }
 
-func (pc *ProcessCheck) Gather(r *Result) error {
-	pc.SetCheckStatus(UNKNOWN)
-	output, err := pc.createPayload(r.ShortName(), r.StartTime())
-	r.SetOutput(formatCheckPayload("CheckProcs", pc.checkStatus, output))
+func (pc *ProcessCheck) Gather(r *plugins.Result) error {
+	pc.SetCheckStatus(plugins.UNKNOWN)
+	r.SetStatus(plugins.UNKNOWN)
+	err := pc.createPayload(r)
 	return err
 }
 
 func (pc *ProcessCheck) Usage() {
 	pc.flags.PrintDefaults()
+}
+
+func (pc *ProcessCheck) GetStatus() string {
+	return "CheckProcs " + pc.checkStatus.ToString()
 }

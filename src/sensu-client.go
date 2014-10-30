@@ -1,7 +1,6 @@
 package main
 
 import (
-	"checks"
 	"flag"
 	"log"
 	"os"
@@ -29,7 +28,7 @@ func main() {
 	processes := []sensu.Processor{
 		new(sensu.Keepalive),
 		new(sensu.Subscriber),
-		checks.NewProcessor(),
+		sensu.NewPluginProcessor(),
 	}
 	c := sensu.NewClient(settings, processes)
 
