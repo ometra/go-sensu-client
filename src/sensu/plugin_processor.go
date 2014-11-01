@@ -30,17 +30,6 @@ func NewPluginProcessor() *PluginProcessor {
 	return proc
 }
 
-var builtInChecksAndMetrics = map[string]plugins.SensuPluginInterface{
-	"cpu_metrics":         new(metrics.CpuStats),
-	"display_metrics":     new(metrics.DisplayStats),
-	"interface_metrics":   new(metrics.NetworkInterfaceStats),
-	"load_metrics":        new(metrics.LoadStats),
-	"memory_metrics":      new(metrics.MemoryStats),
-	"uptime_metrics":      new(metrics.UptimeStats),
-	"wireless-ap_metrics": new(metrics.WirelessStats),
-	"check_procs":         new(checks.ProcessCheck),
-}
-
 func newCheckConfig(json interface{}) plugins.PluginConfig {
 	var conf plugins.PluginConfig
 
@@ -110,25 +99,50 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 	p.q = q
 	p.config = config
 	p.close = make(chan bool, len(p.jobs)+1)
+	var check plugins.SensuPluginInterface
 
 	// load the checks we want to do
-	checks := p.config.Data().Get("checks").MustMap()
+	checks_config := p.config.Data().Get("checks").MustMap()
 
-	for check_type, checkConfigInterface := range checks {
+	for check_type, checkConfigInterface := range checks_config {
 		checkConfig, ok := checkConfigInterface.(map[string]interface{})
 		if !ok {
 			log.Printf("Failed to parse config: %", check_type)
 			continue
 		}
 
-		if check, ok := builtInChecksAndMetrics[check_type]; ok {
-			config := newCheckConfig(checkConfig)
-			config.Name = check_type
-			p.AddJob(check, config)
-		} else {
-			// check not built in
-			log.Printf("External Check: %s", check_type)
+		config := newCheckConfig(checkConfig)
+
+		// see if we can handle this check using one of our build in ones
+		switch check_type {
+		case "cpu_metrics":
+			check = new(metrics.CpuStats)
+		case "display_metrics":
+			check = new(metrics.DisplayStats)
+		case "interface_metrics":
+			check = new(metrics.NetworkInterfaceStats)
+		case "load_metrics":
+			check = new(metrics.LoadStats)
+		case "memory_metrics":
+			check = new(metrics.MemoryStats)
+		case "uptime_metrics":
+			check = new(metrics.UptimeStats)
+		case "wireless-ap_metrics":
+			check = new(metrics.WirelessStats)
+		case "check_procs":
+			check = new(checks.ProcessCheck)
+		default:
+			if "metric" == config.Type {
+				// we have a metric!
+				check = new(metrics.external)
+			} else {
+				// we have a check!
+				check = new(checks.external)
+			}
 		}
+
+		config.Name = check_type
+		p.AddJob(check, config)
 
 	}
 
