@@ -5,8 +5,9 @@ import (
 )
 
 type ExternalCheck struct {
-	command string
-	name    string
+	command     string
+	name        string
+	checkStatus plugins.Status
 }
 
 func (ec *ExternalCheck) Init(config plugins.PluginConfig) (string, error) {

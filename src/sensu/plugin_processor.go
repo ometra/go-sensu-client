@@ -134,10 +134,10 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 		default:
 			if "metric" == config.Type {
 				// we have a metric!
-				check = new(metrics.external)
+				check = new(metrics.ExternalMetric)
 			} else {
 				// we have a check!
-				check = new(checks.external)
+				check = new(checks.ExternalCheck)
 			}
 		}
 
