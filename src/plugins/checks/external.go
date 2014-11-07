@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"fmt"
 	"os/exec"
 	"plugins"
 )
@@ -14,17 +15,20 @@ type ExternalCheck struct {
 func (ec *ExternalCheck) Init(config plugins.PluginConfig) (string, error) {
 	// make sure that the command exists?
 	ec.name = config.Name
-	em.command = config.Command
+	ec.command = config.Command
 	return ec.name, nil
 }
 
 func (ec *ExternalCheck) Gather(r *plugins.Result) error {
-	cmd := exec.Command(em.command)
+	fmt.Printf("About to start command\n")
+	cmd := exec.Command(ec.command)
 	err := cmd.Run()
 	ec.checkStatus = plugins.UNKNOWN
 
 	out, errOut := cmd.CombinedOutput()
-	r.SetOutput(string(out))
+	fmt.Println("Output BELOW")
+	fmt.Println(out)
+	r.Add(string(out))
 	if nil == errOut {
 		ec.checkStatus = plugins.OK
 	} else {

@@ -3,6 +3,7 @@ package sensu
 import (
 	"fmt"
 	"log"
+	"os"
 	"plugins"
 	"plugins/checks"
 	"plugins/metrics"
@@ -18,6 +19,7 @@ type PluginProcessor struct {
 	jobsConfig map[string]plugins.PluginConfig
 	close      chan bool
 	results    chan *Result
+	logger     *log.Logger
 }
 
 // used to create a new processor instance.
@@ -26,6 +28,7 @@ func NewPluginProcessor() *PluginProcessor {
 	proc.jobs = make(map[string]plugins.SensuPluginInterface)
 	proc.jobsConfig = make(map[string]plugins.PluginConfig)
 	proc.results = make(chan *Result, 500) // queue of 500 buffered results
+	proc.logger = log.New(os.Stdout, "Plugin: ", log.LstdFlags)
 
 	return proc
 }
@@ -78,10 +81,10 @@ func newCheckConfig(json interface{}) plugins.PluginConfig {
 func (p *PluginProcessor) AddJob(job plugins.SensuPluginInterface, checkConfig plugins.PluginConfig) {
 	name, err := job.Init(checkConfig)
 	if nil != err {
-		log.Printf("Failed to initialise check: (%s) %s\n", name, err)
+		p.logger.Printf("Failed to initialise check: (%s) %s\n", name, err)
 		return
 	}
-	log.Printf("Scheduling job: %s (%s) every %d seconds", name, checkConfig.Command, checkConfig.Interval)
+	p.logger.Printf("Scheduling job: %s (%s) every %d seconds", name, checkConfig.Command, checkConfig.Interval)
 
 	p.jobs[name] = job
 	p.jobsConfig[name] = checkConfig
@@ -107,39 +110,12 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 	for check_type, checkConfigInterface := range checks_config {
 		checkConfig, ok := checkConfigInterface.(map[string]interface{})
 		if !ok {
-			log.Printf("Failed to parse config: %", check_type)
+			p.logger.Printf("Failed to parse config: %", check_type)
 			continue
 		}
 
 		config := newCheckConfig(checkConfig)
-
-		// see if we can handle this check using one of our build in ones
-		switch check_type {
-		case "cpu_metrics":
-			check = new(metrics.CpuStats)
-		case "display_metrics":
-			check = new(metrics.DisplayStats)
-		case "interface_metrics":
-			check = new(metrics.NetworkInterfaceStats)
-		case "load_metrics":
-			check = new(metrics.LoadStats)
-		case "memory_metrics":
-			check = new(metrics.MemoryStats)
-		case "uptime_metrics":
-			check = new(metrics.UptimeStats)
-		case "wireless-ap_metrics":
-			check = new(metrics.WirelessStats)
-		case "check_procs":
-			check = new(checks.ProcessCheck)
-		default:
-			if "metric" == config.Type {
-				// we have a metric!
-				check = new(metrics.ExternalMetric)
-			} else {
-				// we have a check!
-				check = new(checks.ExternalCheck)
-			}
-		}
+		check = getCheckHandler(check_type, config.Type)
 
 		config.Name = check_type
 		p.AddJob(check, config)
@@ -153,17 +129,18 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 func (p *PluginProcessor) Start() {
 	go p.publish()
 
+	clientConfig := p.config.Data().Get("client")
+
 	// start our result publisher thread
 	for job_name, job := range p.jobs {
 		go func(theJobName string, theJob plugins.SensuPluginInterface) {
 			config := p.jobsConfig[job_name]
 
-			log.Printf("Starting job: %s", theJobName)
 			reset := make(chan bool)
 
 			timer := time.AfterFunc(0, func() {
-				log.Printf("Gathering: %s", theJobName)
-				result := NewResult(p.config.Data().Get("client"), theJobName)
+				p.logger.Printf("Gathering: %s", theJobName)
+				result := NewResult(clientConfig, theJobName)
 				result.SetCommand(config.Command)
 
 				presult := new(plugins.Result)
@@ -174,7 +151,7 @@ func (p *PluginProcessor) Start() {
 
 				if nil != err {
 					// returned an error - we should stop this job from running
-					log.Printf("Failed to gather stat: %s. %v", theJobName, err)
+					p.logger.Printf("Failed to gather stat: %s. %v", theJobName, err)
 					reset <- false
 					return
 				}
@@ -216,11 +193,42 @@ func (p *PluginProcessor) publish() {
 		case result := <-p.results:
 			if result.HasOutput() {
 				if err := p.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
-					log.Printf("Error Publishing Stats: %v. %v", err, result)
+					p.logger.Printf("Error Publishing Stats: %v. %v", err, result)
 				}
 			}
 		case <-p.close:
 			return
 		}
 	}
+}
+
+func getCheckHandler(check_type, config_type string) plugins.SensuPluginInterface {
+	var check plugins.SensuPluginInterface
+	switch check_type {
+	case "cpu_metrics", "cpu_metrics.rb":
+		check = new(metrics.CpuStats)
+	case "display_metrics":
+		check = new(metrics.DisplayStats)
+	case "interface_metrics":
+		check = new(metrics.NetworkInterfaceStats)
+	case "load_metrics":
+		check = new(metrics.LoadStats)
+	case "memory_metrics":
+		check = new(metrics.MemoryStats)
+	case "uptime_metrics":
+		check = new(metrics.UptimeStats)
+	case "wireless-ap_metrics":
+		check = new(metrics.WirelessStats)
+	case "check_procs":
+		check = new(checks.ProcessCheck)
+	default:
+		if "metric" == config_type {
+			// we have a metric!
+			check = new(metrics.ExternalMetric)
+		} else {
+			// we have a check!
+			check = new(checks.ExternalCheck)
+		}
+	}
+	return check
 }

@@ -1,28 +1,39 @@
 package sensu
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/streadway/amqp"
 	"log"
+	"os"
+	"plugins"
+	"time"
 )
 
 type Subscriber struct {
 	deliveries <-chan amqp.Delivery
 	done       chan error
+	logger     *log.Logger
+	config     *Config
+	q          MessageQueuer
 }
 
 func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 
+	s.config = c
+	s.q = q
 	config_name, _ := c.Data().Get("client").Get("name").String()
 	config_ver, _ := c.Data().Get("client").Get("version").String()
 
-	queue_name := config_name + "-" + config_ver
-	log.Printf("Declaring Queue: %s", queue_name)
+	s.logger = log.New(os.Stdout, "Subscriptions: ", log.LstdFlags)
+
+	queue_name := fmt.Sprintf("%s-%s-%d", config_name, config_ver, time.Now().Unix())
+	s.logger.Printf("Declaring Queue: %s", queue_name)
 	queue, err := q.QueueDeclare(queue_name)
 	if err != nil {
 		return fmt.Errorf("Queue Declare: %s", err)
 	}
-	log.Printf("declared Queue")
+	s.logger.Printf("declared Queue")
 
 	var subscriptions []string
 	subscriptions, err = c.Data().GetPath("client", "subscriptions").StringArray()
@@ -31,20 +42,20 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 	}
 
 	for _, sub := range subscriptions {
-		log.Printf("declaring Exchange (%q)", sub)
+		s.logger.Printf("declaring Exchange (%q)", sub)
 		err = q.ExchangeDeclare(sub, "fanout")
 		if err != nil {
 			return fmt.Errorf("Exchange Declare: %s", err)
 		}
 
-		log.Printf("binding %s to Exchange %q", queue.Name, sub)
+		s.logger.Printf("Binding %s to Exchange %q", queue.Name, sub)
 		err = q.QueueBind(queue.Name, "", sub)
 		if err != nil {
 			return fmt.Errorf("Queue Bind: %s", err)
 		}
 	}
 
-	log.Printf("starting Consume")
+	s.logger.Printf("Starting Consume on queue: " + queue.Name)
 	s.deliveries, err = q.Consume(queue.Name, "")
 	if err != nil {
 		return fmt.Errorf("Queue Consume: %s", err)
@@ -55,7 +66,7 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 }
 
 func (s *Subscriber) Start() {
-	go handle(s.deliveries, s.done)
+	go s.handle(s.deliveries, s.done)
 
 	// for {
 	// 	select {
@@ -69,15 +80,55 @@ func (s *Subscriber) Stop() {
 	s.done <- nil
 }
 
-func handle(deliveries <-chan amqp.Delivery, done chan error) {
+func (s *Subscriber) handle(deliveries <-chan amqp.Delivery, done chan error) {
+	clientConfig := s.config.Data().Get("client")
 	for d := range deliveries {
-		log.Printf(
+		s.logger.Printf(
 			"got %dB delivery: [%v] %q",
 			len(d.Body),
 			d.DeliveryTag,
 			d.Body,
 		)
+
+		checkConfig := new(plugins.PluginConfig)
+		err := json.Unmarshal(d.Body, checkConfig)
+		if nil != err {
+			s.logger.Printf("Unable to decode message, skipping...")
+			d.Reject(false)
+			continue
+		}
+
+		//s.logger.Printf("Our check consists of: %+v", checkConfig)
+
+		theJob := getCheckHandler(checkConfig.Name, checkConfig.Type)
+
+		result := NewResult(clientConfig, checkConfig.Name)
+		result.SetCommand(checkConfig.Command)
+
+		presult := new(plugins.Result)
+
+		theJob.Init(*checkConfig)
+
+		err = theJob.Gather(presult)
+		result.SetOutput(presult.Output())
+		result.SetCheckStatus(theJob.GetStatus())
+
+		if nil != err {
+			// returned an error - we should stop this job from running
+			s.logger.Printf("Failed to gather stat: %s. %v", checkConfig.Name, err)
+			return
+		}
+
+		// and now send it back
+		if result.HasOutput() {
+			if err = s.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
+				s.logger.Printf("Error Publishing Stats: %v. %v", err, result)
+			}
+		}
+
+		d.Ack(false)
+
 	}
-	log.Printf("handle: deliveries channel closed")
+	s.logger.Printf("handle: deliveries channel closed")
 	done <- nil
 }

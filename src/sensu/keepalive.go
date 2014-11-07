@@ -5,6 +5,7 @@ import (
 	"github.com/bitly/go-simplejson"
 	"github.com/streadway/amqp"
 	"log"
+	"os"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type Keepalive struct {
 	q      MessageQueuer
 	config *Config
 	close  chan bool
+	logger *log.Logger
 }
 
 const keepaliveInterval = 20 * time.Second
@@ -23,6 +25,7 @@ func (k *Keepalive) Init(q MessageQueuer, config *Config) error {
 	); err != nil {
 		return fmt.Errorf("Exchange Declare: %s", err)
 	}
+	k.logger = log.New(os.Stdout, "Keepalive: ", log.LstdFlags)
 
 	k.q = q
 	k.config = config
@@ -61,10 +64,10 @@ func (k *Keepalive) publish(payload amqp.Publishing) {
 		"",
 		payload,
 	); err != nil {
-		log.Printf("keepalive.publish: %v", err)
+		k.logger.Printf("keepalive.publish: %v", err)
 		return
 	}
-	log.Print("Keepalive published")
+	k.logger.Print("Keepalive published")
 }
 
 func createKeepalivePayload(clientConfig *simplejson.Json, timestamp time.Time) amqp.Publishing {

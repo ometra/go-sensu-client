@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -139,7 +140,9 @@ func (result *Result) toJson() []byte {
 	if nil != err {
 		log.Panic(err)
 	}
-	log.Printf(string(json)) // handy json debug printing
+	if "" != os.Getenv("DEBUG") {
+		log.Printf(string(json)) // handy json debug printing
+	}
 	return json
 }
 

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"os/exec"
 	"plugins"
 )
@@ -18,12 +19,16 @@ func (em *ExternalMetric) Init(config plugins.PluginConfig) (string, error) {
 }
 
 func (em *ExternalMetric) Gather(r *plugins.Result) error {
+	fmt.Printf("About to start command\n")
 	cmd := exec.Command(em.command)
 	err := cmd.Run()
 
 	out, errOut := cmd.CombinedOutput()
+	fmt.Println("Output BELOW")
+	fmt.Println(out)
+
 	if nil == errOut {
-		r.SetOutput(string(bytes))
+		r.Add(em.name + " " + string(out))
 	}
 
 	return err

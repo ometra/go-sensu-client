@@ -25,10 +25,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.SetPrefix("Sensu: ")
+
 	processes := []sensu.Processor{
-		new(sensu.Keepalive),
+		//new(sensu.Keepalive),
 		new(sensu.Subscriber),
-		sensu.NewPluginProcessor(),
+		//sensu.NewPluginProcessor(),
 	}
 	c := sensu.NewClient(settings, processes)
 

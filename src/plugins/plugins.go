@@ -13,13 +13,13 @@ type SensuPluginInterface interface {
 }
 
 type PluginConfig struct {
-	Type       string
-	Name       string
-	Command    string
-	Args       []string
-	Handlers   []string
-	Standalone bool
-	Interval   time.Duration
+	Type       string        `json:"type"`
+	Name       string        `json:"name"`
+	Command    string        `json:"command"`
+	Args       []string      `json:"args"`
+	Handlers   []string      `json:"handlers"`
+	Standalone bool          `json:"standalone"`
+	Interval   time.Duration `json:"interval"`
 }
 
 type Status int // check status - not used for metrics
