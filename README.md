@@ -47,6 +47,31 @@ Since we are targetting more than 1 platform here (we are wanting to run this
 client under android after all) the build script is a shortcut for making all of
 our targets.
 
+### Building under Golang >= 1.4
+To build for the android platform (GOOS=android) you need to do the following:
+
+I placed all the downloads into ~/dev
+
+	1. Get a copy of Golang >= version 1.4 from https://golang.org/dl/
+		* Unpack it into ~/dev
+	2. Grab the latest copy of the Android NDK from https://developer.android.com/tools/sdk/ndk/index.html
+		* Make it executable and run it (it unpacks into the current folder, so ~/dev)
+	3. Time to get a copy of our platform NDK.
+		* export NDK_ROOT=~/dev/ndk-toolchain
+		* ./android-ndk-r10c/build/tools/make-standalone-toolchain.sh --platform=android-16 --install-dir=$NDK_ROOT
+	4. Now we need to build the Golang toolchain, cd into ~/dev/go/src
+		* export NDK_CC=~/dev/ndk-toolchain/bin/arm-linux-androideabi-gcc
+		* CC_FOR_TARGET=$NDK_CC GOOS=android GOARCH=arm GOARM=7 ./make.bash
+	5. Now we can run our sensu build script, change to the go sensu client checked out folder
+		* ./build.sh
+
+Running
+-------
+You can get some extra debug information by setting the environment variable DEBUG.
+e.g.
+
+	$ DEBUG=1 ./sensu-client-arm
+
 Gotchas
 =======
 * Currently only linux is supported.
