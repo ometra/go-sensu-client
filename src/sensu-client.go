@@ -2,13 +2,17 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"os"
 	"sensu"
 	"strings"
 )
 
-var configFile, configDir string
+var (
+	configFile, configDir string
+	logOutput             io.Writer = os.Stdout
+)
 
 func init() {
 	flag.StringVar(&configFile, "config-file", "config.json", "Sensu JSON config file")
@@ -25,12 +29,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.SetPrefix("Sensu: ")
-
 	processes := []sensu.Processor{
-		new(sensu.Keepalive),
-		new(sensu.Subscriber),
-		sensu.NewPluginProcessor(),
+		sensu.NewKeepalive(logOutput),
+		sensu.NewSubscriber(logOutput),
+		sensu.NewPluginProcessor(logOutput),
 	}
 	c := sensu.NewClient(settings, processes)
 

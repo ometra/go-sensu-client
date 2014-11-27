@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/streadway/amqp"
+	"io"
 	"log"
-	"os"
 	"time"
 )
 
@@ -14,6 +14,12 @@ type Keepalive struct {
 	config *Config
 	close  chan bool
 	logger *log.Logger
+}
+
+func NewKeepalive(w io.Writer) *Keepalive {
+	k := new(Keepalive)
+	k.logger = log.New(w, "Keepalive: ", log.LstdFlags)
+	return k
 }
 
 const keepaliveInterval = 20 * time.Second
@@ -25,7 +31,6 @@ func (k *Keepalive) Init(q MessageQueuer, config *Config) error {
 	); err != nil {
 		return fmt.Errorf("Exchange Declare: %s", err)
 	}
-	k.logger = log.New(os.Stdout, "Keepalive: ", log.LstdFlags)
 
 	k.q = q
 	k.config = config

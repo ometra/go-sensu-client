@@ -2,8 +2,8 @@ package sensu
 
 import (
 	"fmt"
+	"io"
 	"log"
-	"os"
 	"plugins"
 	"plugins/checks"
 	"plugins/metrics"
@@ -23,12 +23,12 @@ type PluginProcessor struct {
 }
 
 // used to create a new processor instance.
-func NewPluginProcessor() *PluginProcessor {
+func NewPluginProcessor(w io.Writer) *PluginProcessor {
 	proc := new(PluginProcessor)
 	proc.jobs = make(map[string]plugins.SensuPluginInterface)
 	proc.jobsConfig = make(map[string]plugins.PluginConfig)
 	proc.results = make(chan *Result, 500) // queue of 500 buffered results
-	proc.logger = log.New(os.Stdout, "Plugin: ", log.LstdFlags)
+	proc.logger = log.New(w, "Plugin: ", log.LstdFlags)
 
 	return proc
 }

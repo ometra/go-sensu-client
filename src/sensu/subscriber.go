@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/streadway/amqp"
+	"io"
 	"log"
-	"os"
 	"plugins"
 	"time"
 )
@@ -18,14 +18,18 @@ type Subscriber struct {
 	q          MessageQueuer
 }
 
+func NewSubscriber(w io.Writer) *Subscriber {
+	s := new(Subscriber)
+	s.logger = log.New(w, "Subscriptions: ", log.LstdFlags)
+	return s
+}
+
 func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 
 	s.config = c
 	s.q = q
 	config_name, _ := c.Data().Get("client").Get("name").String()
 	config_ver, _ := c.Data().Get("client").Get("version").String()
-
-	s.logger = log.New(os.Stdout, "Subscriptions: ", log.LstdFlags)
 
 	queue_name := fmt.Sprintf("%s-%s-%d", config_name, config_ver, time.Now().Unix())
 	s.logger.Printf("Declaring Queue: %s", queue_name)
