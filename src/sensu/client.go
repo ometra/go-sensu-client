@@ -57,8 +57,9 @@ func (c *Client) Start() {
 }
 
 func (c *Client) Stop() {
+	log.Print("STOP: Closing down processes")
 	for _, proc := range c.processes {
-		proc.Stop()
+		go proc.Stop()
 	}
 }
 

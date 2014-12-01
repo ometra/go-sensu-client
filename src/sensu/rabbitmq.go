@@ -116,7 +116,7 @@ func (r *Rabbitmq) Publish(exchange, key string, msg amqp.Publishing) error {
 func (r *Rabbitmq) connect(uri string, done chan bool) {
 	var err error
 
-	log.Printf("dialing %q", uri)
+	log.Printf("Dialing %q", uri)
 	r.conn, err = amqp.Dial(uri)
 	if err != nil {
 		log.Printf("Dial: %s", err)

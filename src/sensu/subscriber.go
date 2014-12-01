@@ -70,69 +70,69 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 }
 
 func (s *Subscriber) Start() {
-	go s.handle(s.deliveries, s.done)
-
-	// for {
-	// 	select {
-	// 	case <-s.done:
-	// 		return
-	// 	}
-	// }
+	//go s.handle(s.deliveries, s.done)
+	var d amqp.Delivery
+	for {
+		select {
+		case d = <-s.deliveries:
+			go s.handle(d)
+		case <-s.done:
+			return
+		}
+	}
 }
 
 func (s *Subscriber) Stop() {
+	s.logger.Print("STOP: Shutting down subscribers")
 	s.done <- nil
 }
 
-func (s *Subscriber) handle(deliveries <-chan amqp.Delivery, done chan error) {
+func (s *Subscriber) handle(d amqp.Delivery) {
 	clientConfig := s.config.Data().Get("client")
-	for d := range deliveries {
-		s.logger.Printf(
-			"got %dB delivery: [%v] %q",
-			len(d.Body),
-			d.DeliveryTag,
-			d.Body,
-		)
 
-		checkConfig := new(plugins.PluginConfig)
-		err := json.Unmarshal(d.Body, checkConfig)
-		if nil != err {
-			s.logger.Printf("Unable to decode message, skipping...")
-			d.Reject(false)
-			continue
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Printf("Caught Panic on Close. %+v", r)
 		}
+	}()
 
-		//s.logger.Printf("Our check consists of: %+v", checkConfig)
-
-		theJob := getCheckHandler(checkConfig.Name, checkConfig.Type)
-
-		result := NewResult(clientConfig, checkConfig.Name)
-		result.SetCommand(checkConfig.Command)
-
-		presult := new(plugins.Result)
-
-		theJob.Init(*checkConfig)
-
-		err = theJob.Gather(presult)
-		result.SetOutput(presult.Output())
-		result.SetCheckStatus(theJob.GetStatus())
-
-		if nil != err {
-			// returned an error - we should stop this job from running
-			s.logger.Printf("Failed to gather stat: %s. %v", checkConfig.Name, err)
-			return
-		}
-
-		// and now send it back
-		if result.HasOutput() {
-			if err = s.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
-				s.logger.Printf("Error Publishing Stats: %v. %v", err, result)
-			}
-		}
-
-		d.Ack(false)
-
+	checkConfig := new(plugins.PluginConfig)
+	err := json.Unmarshal(d.Body, checkConfig)
+	if nil != err {
+		s.logger.Printf("Unable to decode message, skipping...")
+		d.Reject(false)
+		return
 	}
-	s.logger.Printf("handle: deliveries channel closed")
-	done <- nil
+
+	//s.logger.Printf("Our check consists of: %+v", checkConfig)
+	s.logger.Printf("Running '%s'", checkConfig.Name)
+
+	theJob := getCheckHandler(checkConfig.Name, checkConfig.Type)
+
+	result := NewResult(clientConfig, checkConfig.Name)
+	result.SetCommand(checkConfig.Command)
+
+	presult := new(plugins.Result)
+
+	theJob.Init(*checkConfig)
+
+	err = theJob.Gather(presult)
+	result.SetOutput(presult.Output())
+	result.SetCheckStatus(theJob.GetStatus())
+
+	if nil != err {
+		// returned an error - we should stop this job from running
+		s.logger.Printf("Failed to gather stat: %s. %v", checkConfig.Name, err)
+		return
+	}
+
+	// and now send it back
+	if result.HasOutput() {
+		if err = s.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
+			s.logger.Printf("Error Publishing Stats: %v. %v", err, result)
+		}
+	}
+
+	d.Ack(false)
+
 }

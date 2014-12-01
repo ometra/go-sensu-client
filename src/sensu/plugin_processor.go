@@ -13,22 +13,23 @@ import (
 )
 
 type PluginProcessor struct {
-	q          MessageQueuer
-	config     *Config
-	jobs       map[string]plugins.SensuPluginInterface
-	jobsConfig map[string]plugins.PluginConfig
-	close      chan bool
-	results    chan *Result
-	logger     *log.Logger
+	q            MessageQueuer
+	config       *Config
+	jobs         map[string]plugins.SensuPluginInterface
+	jobsConfig   map[string]plugins.PluginConfig
+	close        chan bool
+	closeResults chan bool
+	results      chan *Result
+	logger       *log.Logger
 }
 
 // used to create a new processor instance.
 func NewPluginProcessor(w io.Writer) *PluginProcessor {
 	proc := new(PluginProcessor)
-	proc.jobs = make(map[string]plugins.SensuPluginInterface)
 	proc.jobsConfig = make(map[string]plugins.PluginConfig)
-	proc.results = make(chan *Result, 500) // queue of 500 buffered results
+	proc.results = make(chan *Result, 600) // queue of 600 buffered results
 	proc.logger = log.New(w, "Plugin: ", log.LstdFlags)
+	proc.closeResults = make(chan bool)
 
 	return proc
 }
@@ -106,6 +107,7 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 
 	// load the checks we want to do
 	checks_config := p.config.Data().Get("checks").MustMap()
+	p.jobs = make(map[string]plugins.SensuPluginInterface)
 
 	for check_type, checkConfigInterface := range checks_config {
 		checkConfig, ok := checkConfigInterface.(map[string]interface{})
@@ -119,7 +121,6 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 
 		config.Name = check_type
 		p.AddJob(check, config)
-
 	}
 
 	return nil
@@ -134,7 +135,7 @@ func (p *PluginProcessor) Start() {
 	// start our result publisher thread
 	for job_name, job := range p.jobs {
 		go func(theJobName string, theJob plugins.SensuPluginInterface) {
-			config := p.jobsConfig[job_name]
+			config := p.jobsConfig[theJobName]
 
 			reset := make(chan bool)
 
@@ -158,6 +159,7 @@ func (p *PluginProcessor) Start() {
 
 				// add it to the processing queue
 				p.results <- result
+
 				reset <- true
 			})
 
@@ -180,23 +182,31 @@ func (p *PluginProcessor) Start() {
 
 // Puts a halt to all of our checks/metrics gathering
 func (p *PluginProcessor) Stop() {
-	for i := 0; i < len(p.close); i++ {
-		p.close <- true
-	}
+	//p.logger.Printf("STOP: Closing %d Plugins: ", len(p.jobs))
+	//for name, _ := range p.jobs {
+	//	p.logger.Print("STOP: Closing Plugin: ", name)
+	//	p.close <- true
+	//}
+
+	// and one for the publish function
+	p.closeResults <- true
 }
 
 // our result publishing. will publish results until we call PluginProcessor.Stop()
 func (p *PluginProcessor) publish() {
 
 	for {
+		//p.logger.Printf("Result Queue State: %d/%d\n", len(p.results), cap(p.results))
 		select {
 		case result := <-p.results:
 			if result.HasOutput() {
 				if err := p.q.Publish(RESULTS_QUEUE, "", result.GetPayload()); err != nil {
-					p.logger.Printf("Error Publishing Stats: %v. %v", err, result)
+					p.logger.Printf("Error Publishing Stats: %v.", err)
+					p.results <- result // requeue the failed result
 				}
 			}
-		case <-p.close:
+		case <-p.closeResults:
+			p.logger.Print("STOP: Shutting down the result publisher")
 			return
 		}
 	}

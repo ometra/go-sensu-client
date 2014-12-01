@@ -60,6 +60,7 @@ func (k *Keepalive) Start() {
 }
 
 func (k *Keepalive) Stop() {
+	k.logger.Print("STOP: Shutting Down")
 	k.close <- true
 }
 
