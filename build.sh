@@ -27,5 +27,6 @@ export GOOS=linux
 export GOARCH=amd64
 $GO build -o bin/sensu-client-x64 src/sensu-client.go
 $GO build -o bin/check-procs src/check-procs.go
+$GO build -o bin/metric-tcp src/metric-tcp.go
 
 echo "Done. The binaries are in ./bin/"

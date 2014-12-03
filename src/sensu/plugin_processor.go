@@ -231,6 +231,8 @@ func getCheckHandler(check_type, config_type string) plugins.SensuPluginInterfac
 		check = new(metrics.WirelessStats)
 	case "check_procs":
 		check = new(checks.ProcessCheck)
+	case "tcp_metrics":
+		check = new(metrics.TcpStats)
 	default:
 		if "metric" == config_type {
 			// we have a metric!
