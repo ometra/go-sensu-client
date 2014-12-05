@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"regexp"
 )
 
 // TCP Network stats
@@ -31,15 +32,16 @@ const TCP_STATS_NAME = "tcp_metrics"
 
 type TcpStats struct {
 	flags            *flag.FlagSet
-	networkInterface   string
-	listenInterface    string
-	remoteAddress      string
-	localAddress       string
-	networkPort        int
-	timeout            int
-	workingTimeout     time.Duration
-	reboot             bool
-	rebootStatFile     string
+	networkInterface      string
+	listenInterface       string
+	remoteAddress         string
+	localAddress          string
+	networkPort           int
+	timeout               int
+	workingTimeout        time.Duration
+	reboot                bool
+	rebootStatFile        string
+	hostNiceName          string
 }
 
 func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
@@ -74,6 +76,9 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	}
 
 	tcp.workingTimeout = time.Duration(tcp.timeout)*time.Second
+
+	r := regexp.MustCompile("[^0-9a-zA-Z]")
+	tcp.hostNiceName = r.ReplaceAllString(tcp.remoteAddress, "_")
 
 	return TCP_STATS_NAME, err
 }
@@ -111,7 +116,7 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 
 	latency, errPing := tcp.ping(tcp.localAddress, addrs[0], uint16(tcp.networkPort))
 	if errPing == nil {
-		r.Add(fmt.Sprintf("tcp.latency.ms %0.2f", float32(latency)/float32(time.Millisecond)))
+		r.Add(fmt.Sprintf("tcp.latency.%s.ms %0.2f", tcp.hostNiceName, float32(latency)/float32(time.Millisecond)))
 	} else {
 
 		if tcp.reboot {
@@ -124,7 +129,7 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 			log.Println("TCP Check Failed - Rebooting the system in 2 seconds")
 			// this gives the system time to flush
 
-			time.AfterFunc(2 * time.Second, func() {
+			time.AfterFunc(2*time.Second, func() {
 					tcp.performReboot()
 				})
 		}
@@ -155,7 +160,7 @@ func (tcp *TcpStats) getRebootCount() uint {
 	return count
 }
 func (tcp *TcpStats) setRebootCount(count uint) {
-	value := []byte(fmt.Sprintf("%d",count))
+	value := []byte(fmt.Sprintf("%d", count))
 	err := ioutil.WriteFile(tcp.rebootStatFile, value, os.FileMode(0644))
 	if err != nil {
 		log.Println(err)
