@@ -2,7 +2,7 @@
 
 export NDK_TOOLCHAIN=~/dev/ndk-toolchain
 export CC=$NDK_TOOLCHAIN/bin/arm-linux-androideabi-gcc
-export GOROOT=~/dev/go
+export GOROOT=/usr/local/go
 export GOPATH=`pwd`
 export GOOS=android
 export GOARCH=arm
