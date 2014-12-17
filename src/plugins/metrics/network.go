@@ -1,7 +1,10 @@
 package metrics
 
 import (
+	"flag"
+	"log"
 	"plugins"
+	"strings"
 )
 
 // network interfaces stats for Linux based machines
@@ -15,9 +18,34 @@ import (
 // PLATFORMS
 //   Linux
 
-type NetworkInterfaceStats struct{}
+type NetworkInterfaceStats struct {
+	flags          *flag.FlagSet
+	req_interfaces string
+	interfaces     map[string]bool
+	do_filter      bool
+}
 
 func (iface *NetworkInterfaceStats) Init(config plugins.PluginConfig) (string, error) {
+	iface.flags = flag.NewFlagSet("tcp-metrics", flag.ContinueOnError)
+
+	iface.flags.StringVar(&iface.req_interfaces, "i", "", "The list of interfaces to include, all others excluded")
+
+	var err error
+	if len(config.Args) > 1 {
+		err = iface.flags.Parse(config.Args[1:])
+		if nil != err {
+			log.Printf("Failed to parse process check command line: %s", err)
+		}
+	}
+
+	iface.interfaces = make(map[string]bool)
+	if "" != iface.req_interfaces {
+		iface.do_filter = true
+		for _, key := range strings.Split(iface.req_interfaces,",") {
+			iface.interfaces[strings.Trim(key," ")] = true
+		}
+	}
+
 	return "interface_metrics", nil
 }
 
