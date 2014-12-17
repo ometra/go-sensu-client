@@ -112,6 +112,7 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	if "" != tcp.rebootStatFile {
 		rebootCount = tcp.getRebootCount()
 		r.Add(fmt.Sprintf("tcp.reboot-count %d", rebootCount))
+		tcp.setRebootCount(uint(0))
 	}
 
 	latency, errPing := tcp.ping(tcp.localAddress, addrs[0], uint16(tcp.networkPort))
@@ -145,20 +146,23 @@ func (tcp *TcpStats) GetStatus() string {
 func (tcp *TcpStats) ShowUsage() {
 	tcp.flags.PrintDefaults()
 }
+
 func (tcp *TcpStats) getRebootCount() uint {
 	var count uint
 	content, err := ioutil.ReadFile(tcp.rebootStatFile)
-	if err == nil {
-		// we have an existing count!
-		c, err := strconv.ParseUint(string(content), 10, 32)
-		if err != nil {
-			c = 0
-		}
-		count = uint(c)
+	if err != nil {
+		return 0
 	}
+	// we have an existing count!
+	c, err := strconv.ParseUint(string(content), 10, 32)
+	if err != nil {
+		c = 0
+	}
+	count = uint(c)
 
 	return count
 }
+
 func (tcp *TcpStats) setRebootCount(count uint) {
 	value := []byte(fmt.Sprintf("%d", count))
 	err := ioutil.WriteFile(tcp.rebootStatFile, value, os.FileMode(0644))
