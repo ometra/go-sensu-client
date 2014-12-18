@@ -214,26 +214,9 @@ func (p *PluginProcessor) publish() {
 
 func getCheckHandler(check_type, config_type string) plugins.SensuPluginInterface {
 	var check plugins.SensuPluginInterface
-	switch check_type {
-	case "cpu_metrics", "cpu_metrics.rb":
-		check = new(metrics.CpuStats)
-	case "display_metrics":
-		check = new(metrics.DisplayStats)
-	case "interface_metrics":
-		check = new(metrics.NetworkInterfaceStats)
-	case "load_metrics":
-		check = new(metrics.LoadStats)
-	case "memory_metrics":
-		check = new(metrics.MemoryStats)
-	case "uptime_metrics":
-		check = new(metrics.UptimeStats)
-	case "wireless-ap_metrics":
-		check = new(metrics.WirelessStats)
-	case "check_procs":
-		check = new(checks.ProcessCheck)
-	case "tcp_metrics":
-		check = new(metrics.TcpStats)
-	default:
+
+	check = plugins.GetPlugin(check_type)
+	if check == nil {
 		if "metric" == config_type {
 			// we have a metric!
 			check = new(metrics.ExternalMetric)
@@ -242,5 +225,6 @@ func getCheckHandler(check_type, config_type string) plugins.SensuPluginInterfac
 			check = new(checks.ExternalCheck)
 		}
 	}
+
 	return check
 }

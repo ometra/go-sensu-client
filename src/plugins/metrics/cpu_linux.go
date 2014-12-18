@@ -35,7 +35,7 @@ func (cpu *CpuStats) setup() error {
 			}
 		}
 	}
-
+	log.Println("SETTING UP CPU")
 	cpu.gather_frequency_stats = true
 
 	return nil

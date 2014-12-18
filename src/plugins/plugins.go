@@ -4,7 +4,14 @@ import (
 	"time"
 )
 
-// executes the configured checks at the configured intervals
+// Handles any of our checks reimplemented in Golang
+
+const (
+	OK       Status = iota
+	WARNING  Status = iota
+	CRITICAL Status = iota
+	UNKNOWN  Status = iota
+)
 
 type SensuPluginInterface interface {
 	Init(PluginConfig) (name string, err error)
@@ -24,12 +31,10 @@ type PluginConfig struct {
 
 type Status int // check status - not used for metrics
 
-const (
-	OK       Status = iota
-	WARNING  Status = iota
-	CRITICAL Status = iota
-	UNKNOWN  Status = iota
-)
+type Result struct {
+	output    []string
+	runStatus Status
+}
 
 var statusLookupTable = map[Status]string{
 	OK:       `OK`,
@@ -38,9 +43,14 @@ var statusLookupTable = map[Status]string{
 	UNKNOWN:  `UNKNOWN`,
 }
 
-type Result struct {
-	output    []string
-	runStatus Status
+var pluginList = map[string]SensuPluginInterface{}
+
+func Register(handle string, plugin SensuPluginInterface) {
+	pluginList[handle] = plugin
+}
+
+func GetPlugin(name string) SensuPluginInterface {
+	return pluginList[name]
 }
 
 func (r *Result) Add(output string) {

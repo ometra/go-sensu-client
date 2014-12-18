@@ -23,6 +23,10 @@ type CpuStats struct {
 	cpu_count                int
 }
 
+func init() {
+	plugins.Register("cpu_metrics", new(CpuStats))
+}
+
 func (cpu *CpuStats) Init(config plugins.PluginConfig) (string, error) {
 	return CPU_STATS_NAME, cpu.setup() // os dependent part
 }

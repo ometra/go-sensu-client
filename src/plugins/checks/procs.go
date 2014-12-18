@@ -52,6 +52,11 @@ type process struct {
 	state, uid, user string
 }
 
+func init() {
+	plugins.Register("check_procs", new(ProcessCheck))
+}
+
+
 func (pc *ProcessCheck) Init(config plugins.PluginConfig) (string, error) {
 	pc.flags = flag.NewFlagSet("process-check", flag.ContinueOnError)
 

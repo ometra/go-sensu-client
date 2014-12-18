@@ -25,6 +25,11 @@ type NetworkInterfaceStats struct {
 	do_filter      bool
 }
 
+func init() {
+	plugins.Register("interface_metrics", new(NetworkInterfaceStats))
+}
+
+
 func (iface *NetworkInterfaceStats) Init(config plugins.PluginConfig) (string, error) {
 	iface.flags = flag.NewFlagSet("tcp-metrics", flag.ContinueOnError)
 

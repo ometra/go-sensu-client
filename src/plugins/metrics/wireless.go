@@ -20,8 +20,13 @@ type WirelessStats struct {
 	exclude []string
 }
 
+func init() {
+	plugins.Register("wireless-ap_metrics", new(WirelessStats))
+}
+
+
 func (ws *WirelessStats) Init(config plugins.PluginConfig) (string, error) {
-	return "wireless_metrics", ws.setup()
+	return "wireless-ap_metrics", ws.setup()
 }
 
 func (ws *WirelessStats) Gather(r *plugins.Result) error {

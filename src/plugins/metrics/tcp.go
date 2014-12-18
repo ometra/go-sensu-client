@@ -44,6 +44,11 @@ type TcpStats struct {
 	hostNiceName          string
 }
 
+func init() {
+	plugins.Register("tcp_metrics", new(TcpStats))
+}
+
+
 func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	tcp.flags = flag.NewFlagSet("tcp-metrics", flag.ContinueOnError)
 

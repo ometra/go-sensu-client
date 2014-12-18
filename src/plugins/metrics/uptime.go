@@ -18,6 +18,11 @@ import (
 type UptimeStats struct {
 }
 
+func init() {
+	plugins.Register("uptime_metrics", new(UptimeStats))
+}
+
+
 func (u *UptimeStats) Init(config plugins.PluginConfig) (string, error) {
 	return "uptime_metrics", nil
 }
