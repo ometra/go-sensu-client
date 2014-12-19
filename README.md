@@ -76,7 +76,9 @@ e.g.
 
 Gotchas
 =======
-* Currently only linux is supported.
+* Currently only linux/android is supported.
+* TCP checks require root access
 * Gathering current CPU Frequency requires root access to:
 
 	/sys/devices/system/cpu/<cpu>/cpufreq/cpuinfo_cur_freq
+
