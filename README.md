@@ -3,6 +3,8 @@ Sensu Client
 sensu-client is an implementation of the [sensu](https://github.com/sensu/sensu) 
 client written in [Golang](https://golang.org).
 
+Forked from https://github.com/chrishoffman/go-sensu-client
+
 It has a bunch of checks that are compiled into the main binary, this binary can 
 then be built and deployed to a variety of platforms as single binary and config
 file.
