@@ -28,7 +28,7 @@ func init() {
 	flag.StringVar(&configDir, "config-dir", "conf.d", "directory or comma-delimited directory list for Sensu JSON config files")
 	flag.StringVar(&overrideHostName, "hostname", "", "A host name to use instead of the one found in the config")
 	flag.StringVar(&overrideAddress, "address", "", "An Address to override the one found in the config file")
-	flag.BoolVar(&quiet, "quiet", false, "This makes all logger output go to dev null")
+	flag.BoolVar(&quiet, "quiet", false, "When true makes all logger output go to dev null")
 	flag.Parse()
 }
 
