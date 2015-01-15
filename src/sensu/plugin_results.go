@@ -1,7 +1,6 @@
 package sensu
 
 import (
-	simplejson "github.com/bitly/go-simplejson"
 	amqp "github.com/streadway/amqp"
 	//	"fmt"
 	"encoding/json"
@@ -43,10 +42,10 @@ type Result struct {
 }
 
 // sets up the common result data
-func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
+func NewResult(clientConfig ClientConfig, check_name string) *Result {
 	result := new(Result)
 
-	result.Client, _ = clientConfig.Get("name").String()
+	result.Client = clientConfig.Name
 	// host name schema is stb.<location-name>.loc.swiftnetworks.com.au
 	bits := strings.Split(result.Client, ".")
 	if "stb" == bits[0] {
@@ -56,7 +55,7 @@ func NewResult(clientConfig *simplejson.Json, check_name string) *Result {
 	}
 
 	result.Check.Name = check_name
-	result.Check.Address, _ = clientConfig.Get("address").String()
+	result.Check.Address = clientConfig.Address
 	result.Check.Executed = uint(time.Now().Unix())
 	result.Check.Handlers = make([]string, 1)
 	result.Check.Handlers[0] = "metrics"

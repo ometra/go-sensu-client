@@ -130,7 +130,7 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 func (p *PluginProcessor) Start() {
 	go p.publish()
 
-	clientConfig := p.config.Data().Get("client")
+	clientConfig := p.config.Client
 
 	// start our result publisher thread
 	for job_name, job := range p.jobs {

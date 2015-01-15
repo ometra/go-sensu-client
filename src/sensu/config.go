@@ -13,6 +13,7 @@ import (
 type ClientConfig struct {
 	Name          string   `json:"name"`
 	Address       string   `json:"address"`
+	Version       string   `json:"version"`
 	Subscriptions []string `json:"subscriptions"`
 }
 

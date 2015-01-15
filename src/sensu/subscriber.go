@@ -28,8 +28,8 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 
 	s.config = c
 	s.q = q
-	config_name, _ := c.Data().Get("client").Get("name").String()
-	config_ver, _ := c.Data().Get("client").Get("version").String()
+	config_name := c.Client.Name
+	config_ver := c.Client.Version
 
 	queue_name := fmt.Sprintf("%s-%s-%d", config_name, config_ver, time.Now().Unix())
 	s.logger.Printf("Declaring Queue: %s", queue_name)
@@ -88,7 +88,7 @@ func (s *Subscriber) Stop() {
 }
 
 func (s *Subscriber) handle(d amqp.Delivery) {
-	clientConfig := s.config.Data().Get("client")
+	clientConfig := s.config.Client
 
 	defer func() {
 		if r := recover(); r != nil {
