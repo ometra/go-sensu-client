@@ -58,13 +58,13 @@ func (ws *WirelessStats) createPayload(r *plugins.Result) error {
 	var skip bool
 
 	for _, file := range ws.files {
-		file, err := os.Open(file)
+		fileHandle, err := os.Open(file)
 		if nil != err {
 			log.Printf("Unable to open file (%s): %s", file, err)
 			continue
 		}
 
-		scanner := bufio.NewScanner(file)
+		scanner := bufio.NewScanner(fileHandle)
 
 		for scanner.Scan() {
 			line := scanner.Text()

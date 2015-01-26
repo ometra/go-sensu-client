@@ -280,7 +280,7 @@ func (pc *ProcessCheck) createPayload(r *plugins.Result) error {
 	}
 
 	if pc.pcpuErrorOver > 0 {
-		r.Add(fmt.Sprintf("; pcpu < %d", pc.pcpuErrorOver))
+		r.Add(fmt.Sprintf("; pcpu < %0.2f", pc.pcpuErrorOver))
 	}
 
 	if pc.threadsErrOver > 0 {
