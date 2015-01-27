@@ -1,17 +1,17 @@
 package metrics
 
 import (
-	"plugins"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
-	"time"
-	"strings"
-	"io/ioutil"
-	"fmt"
 	"os"
-	"strconv"
+	"plugins"
 	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // TCP Network stats
@@ -19,8 +19,8 @@ import (
 // gobs of this code lifted from: https://github.com/grahamking/latency/
 //
 // DESCRIPTION
-//  This plugin attempts to determine network latency. It can optionally run a command when the specified
-// interface is up and we cannot ping
+//  This plugin attempts to determine network latency. It can optionally reboot the device when the specified
+// interface is up and we cannot ping.
 //
 // OUTPUT
 //   Graphite plain-text format (name value timestamp\n)
@@ -32,22 +32,21 @@ const TCP_STATS_NAME = "tcp_metrics"
 
 type TcpStats struct {
 	flags            *flag.FlagSet
-	networkInterface      string
-	listenInterface       string
-	remoteAddress         string
-	localAddress          string
-	networkPort           int
-	timeout               int
-	workingTimeout        time.Duration
-	reboot                bool
-	rebootStatFile        string
-	hostNiceName          string
+	networkInterface string
+	listenInterface  string
+	remoteAddress    string
+	localAddress     string
+	networkPort      int
+	timeout          int
+	workingTimeout   time.Duration
+	reboot           bool
+	rebootStatFile   string
+	hostNiceName     string
 }
 
 func init() {
 	plugins.Register("tcp_metrics", new(TcpStats))
 }
-
 
 func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	tcp.flags = flag.NewFlagSet("tcp-metrics", flag.ContinueOnError)
@@ -80,7 +79,7 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 		return TCP_STATS_NAME, fmt.Errorf("You need to specify a host to ping! e.g.: -host 10.0.0.1")
 	}
 
-	tcp.workingTimeout = time.Duration(tcp.timeout)*time.Second
+	tcp.workingTimeout = time.Duration(tcp.timeout) * time.Second
 
 	r := regexp.MustCompile("[^0-9a-zA-Z]")
 	tcp.hostNiceName = r.ReplaceAllString(tcp.remoteAddress, "_")
@@ -92,10 +91,19 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	// measure TCP/IP response
 	var rebootCount uint
 
+	stat, err := os.Stat("/sys/class/net/" + tcp.networkInterface)
+	if nil != err {
+		return fmt.Errorf("Interface %s does not exist.", tcp.networkInterface)
+	}
+
+	if !stat.IsDir() {
+		return fmt.Errorf("Interface %s does not exist.", tcp.networkInterface)
+	}
+
 	// is the network interface up?
 	state, err := ioutil.ReadFile("/sys/class/net/" + tcp.networkInterface + "/operstate")
 	if nil != err {
-		return err
+		return fmt.Errorf("Unable to determine if interface is up.")
 	}
 	// cannot ping when the network is down
 	if "up" != string(state[0:2]) {
@@ -136,8 +144,8 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 			// this gives the system time to flush
 
 			time.AfterFunc(2*time.Second, func() {
-					tcp.performReboot()
-				})
+				tcp.performReboot()
+			})
 		}
 	}
 

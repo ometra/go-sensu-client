@@ -35,8 +35,8 @@ func main() {
 	r := new(plugins.Result)
 	err = m.Gather(r)
 	if nil != err {
+		fmt.Println("Error:", err)
 		os.Exit(2)
-		fmt.Println(err)
 	}
 	fmt.Println(strings.Join(r.Output(), "\n"))
 }
