@@ -166,12 +166,10 @@ func latency(localAddr string, remoteHost string, port uint16) time.Duration {
 	wg.Add(1)
 	var receiveTime time.Time
 
-	addrs, err := net.LookupHost(remoteHost)
+	remoteAddr, err := getRemoteAddress(remoteHost)
 	if err != nil {
-		log.Printf("Error resolving %s. %s\n", remoteHost, err)
 		return time.Duration(0)
 	}
-	remoteAddr := addrs[0]
 
 	go func() {
 		receiveTime = receiveSynAck(localAddr, remoteAddr)
@@ -183,6 +181,24 @@ func latency(localAddr string, remoteHost string, port uint16) time.Duration {
 
 	wg.Wait()
 	return receiveTime.Sub(sendTime)
+}
+
+/**
+Used in a couple of places. It works around sometimes net.LookupHost borking on IP addresses
+ */
+func getRemoteAddress(address string) (string,error) {
+	remoteAddr := "";
+	if ip := net.ParseIP(address); ip != nil {
+		remoteAddr = ip.String()
+	} else {
+		addrs, err := net.LookupHost(address)
+		if err != nil {
+			return "", fmt.Errorf("Error resolving %s. %s", address, err)
+		} else {
+			remoteAddr = addrs[0]
+		}
+	}
+	return remoteAddr, nil
 }
 
 func interfaceAddress(ifaceName string) (net.Addr, error) {

@@ -1,80 +1,89 @@
 {
-	"client": {
-		"name": "your.host.name",
-		"address": "127.0.0.1",
-		"subscriptions": ["all"],
-		"version": "0.14.0"
-	},
-	"rabbitmq": {
-		"host": "remote.rabbitmq.server",
-		"port": 5672,
-		"user": "guest",
-		"password": "guest",
-		"vhost": "/sensu"
-	},
-   "checks":{  
-      "cpu_metrics":{  
-         "type":"metric",
-         "command":"cpu-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "display_metrics":{  
-         "type":"metric",
-         "command":"display-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "interface_metrics":{  
-         "type":"metric",
-         "command":"interface-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "load_metrics":{  
-         "type":"metric",
-         "command":"load-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "memory_metrics":{  
-         "type":"metric",
-         "command":"memory-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "wireless-ap_metrics":{  
-         "type":"metric",
-         "command":"wireless-ap-metrics.rb",
-         "handlers":[  
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":15
-      },
-      "uptime_metrics": {
-         "type":"metric",
-         "command":"uptime-metrics.rb",
-         "handlers":[
-            "metrics"
-         ],
-         "standalone":true,
-         "interval":60
-      }
-   }
+  "client": {
+    "name": "your.host.name",
+    "address": "127.0.0.1",
+    "subscriptions": ["all"],
+    "version": "0.14.0"
+  },
+  "rabbitmq": {
+    "host": "remote.rabbitmq.server",
+    "port": 5672,
+    "user": "guest",
+    "password": "guest",
+    "vhost": "/sensu"
+  },
+  "checks": {
+    "cpu_metrics": {
+      "type": "metric",
+      "command": "cpu-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "display_metrics": {
+      "type": "metric",
+      "command": "display-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "interface_metrics": {
+      "type": "metric",
+      "command": "interface-metrics.rb -i eth0,br0,wlan0",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "load_metrics": {
+      "type": "metric",
+      "command": "load-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "memory_metrics": {
+      "type": "metric",
+      "command": "memory-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "tcp_metrics": {
+      "type": "metric",
+      "command": "metric-tcp -test-interface eth0 -i br0 -host 127.0.0.1 -port 161 -timeout 10",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "wireless-ap_metrics": {
+      "type": "metric",
+      "command": "wireless-ap-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    },
+    "uptime_metrics": {
+      "type": "metric",
+      "command": "uptime-metrics.rb",
+      "handlers": [
+        "metrics"
+      ],
+      "standalone": true,
+      "interval": 60
+    }
+  }
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"plugins"
 	"regexp"
@@ -107,19 +106,20 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	}
 	// cannot ping when the network is down
 	if "up" != string(state[0:2]) {
-		return nil
+		return fmt.Errorf("Network Interface %s is down", tcp.networkInterface)
 	}
 
 	iface, err := interfaceAddress(tcp.listenInterface)
 	if err != nil {
 		log.Print(err)
-		return nil
+		return err
 	}
 	tcp.localAddress = strings.Split(iface.String(), "/")[0]
 
-	addrs, err := net.LookupHost(tcp.remoteAddress)
+	// does the remoteAddress look like an IP address?
+	remoteIp, err := getRemoteAddress(tcp.remoteAddress);
 	if err != nil {
-		log.Printf("Error resolving %s. %s\n", tcp.remoteAddress, err)
+		return err;
 	}
 
 	if "" != tcp.rebootStatFile {
@@ -128,7 +128,7 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 		tcp.setRebootCount(uint(0))
 	}
 
-	latency, errPing := tcp.ping(tcp.localAddress, addrs[0], uint16(tcp.networkPort))
+	latency, errPing := tcp.ping(tcp.localAddress, remoteIp, uint16(tcp.networkPort))
 	if errPing == nil {
 		r.Add(fmt.Sprintf("tcp.latency.%s.ms %0.2f", tcp.hostNiceName, float32(latency)/float32(time.Millisecond)))
 	} else {
