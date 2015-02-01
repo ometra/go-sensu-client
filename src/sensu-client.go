@@ -42,10 +42,12 @@ func main() {
 	settings, err := sensu.LoadConfigs(configFile, configDirs)
 	if "" != overrideHostName {
 		settings.Client.Name = overrideHostName
+		settings.Data().Get("client").Set("name", overrideHostName)
 	}
 
 	if "" != overrideAddress {
 		settings.Client.Address = overrideAddress
+		settings.Data().Get("client").Set("address", overrideAddress)
 	}
 
 	if err != nil {

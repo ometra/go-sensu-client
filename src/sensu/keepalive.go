@@ -1,8 +1,8 @@
 package sensu
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/bitly/go-simplejson"
 	"github.com/streadway/amqp"
 	"io"
 	"log"
@@ -14,11 +14,6 @@ type Keepalive struct {
 	config *Config
 	close  chan bool
 	logger *log.Logger
-}
-
-type keepalivePayload struct {
-	ClientConfig
-	Timestamp int64 `json:"timestamp"`
 }
 
 func NewKeepalive(w io.Writer) *Keepalive {
@@ -45,7 +40,7 @@ func (k *Keepalive) Init(q MessageQueuer, config *Config) error {
 }
 
 func (k *Keepalive) Start() {
-	clientConfig := k.config.Client
+	clientConfig := k.config.Data().Get("client")
 	reset := make(chan bool)
 	timer := time.AfterFunc(0, func() {
 		payload := createKeepalivePayload(clientConfig, time.Now())
@@ -81,15 +76,10 @@ func (k *Keepalive) publish(payload amqp.Publishing) {
 	k.logger.Print("Keepalive published")
 }
 
-func createKeepalivePayload(clientConfig ClientConfig, timestamp time.Time) amqp.Publishing {
-	var payload keepalivePayload
-	payload.Address = clientConfig.Address
-	payload.Name = clientConfig.Name
-	payload.Subscriptions = clientConfig.Subscriptions
-	payload.Timestamp = int64(timestamp.Unix())
-	payload.Version = clientConfig.Version
-
-	body, _ := json.Marshal(payload)
+func createKeepalivePayload(clientConfig *simplejson.Json, timestamp time.Time) amqp.Publishing {
+	payload := clientConfig
+	payload.Set("timestamp", int64(timestamp.Unix()))
+	body, _ := payload.MarshalJSON()
 	return amqp.Publishing{
 		ContentType:  "application/octet-stream",
 		Body:         body,
