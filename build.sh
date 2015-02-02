@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export CC=${NDK_TOOLCHAIN:="~/dev/ndk-toolchain"}/bin/arm-linux-androideabi-gcc
+export CC=${NDK_TOOLCHAIN:=~/dev/ndk-toolchain}/bin/arm-linux-androideabi-gcc
 export GOROOT=${GOROOT:="/usr/local/go"}
 export GOPATH=`pwd`
 
@@ -10,7 +10,7 @@ BUILD_FLAGS=''
 echo "Bulding with..."
 ${GO} version
 
-if [ -f "$CC" ]; then
+if [ -e "${CC}" ]; then
     echo "Building android/arm7 Client..."
     export GOOS=android
     export GOARCH=arm
@@ -24,7 +24,7 @@ fi
 export GOOS=linux
 export GOARCH=arm
 export CGO_ENABLED=0
-export CC=""
+export CC="gcc"
 BUILD_FLAGS="-compiler=gc"
 
 echo "Building Linux/armv7 and Linux/armv6 Clients..."
