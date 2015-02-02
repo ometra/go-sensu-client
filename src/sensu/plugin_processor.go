@@ -147,6 +147,7 @@ func (p *PluginProcessor) Start() {
 				presult := new(plugins.Result)
 
 				err := theJob.Gather(presult)
+				result.SetWrapOutput(!presult.IsNoWrapOutput())
 				result.SetOutput(presult.Output())
 				result.SetCheckStatus(theJob.GetStatus())
 

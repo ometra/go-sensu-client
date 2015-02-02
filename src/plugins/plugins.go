@@ -32,8 +32,9 @@ type PluginConfig struct {
 type Status int // check status - not used for metrics
 
 type Result struct {
-	output    []string
-	runStatus Status
+	output       []string
+	runStatus    Status
+	noOutputWrap bool
 }
 
 var statusLookupTable = map[Status]string{
@@ -67,6 +68,13 @@ func (r *Result) SetStatus(runStatus Status) {
 
 func (r *Result) Status() string {
 	return r.runStatus.ToString()
+}
+
+func (r *Result) SetNoWrapOutput() {
+	r.noOutputWrap = true
+}
+func (r Result) IsNoWrapOutput() bool {
+	return r.noOutputWrap
 }
 
 func (s Status) ToString() string {

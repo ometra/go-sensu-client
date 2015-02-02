@@ -39,11 +39,13 @@ type Result struct {
 	client_short_name string
 	Check             check  `json:"check"`
 	checkStatus       string // for checks we want to know if they are critical/warning/unknown/ok
+	wrapOutput        bool
 }
 
 // sets up the common result data
 func NewResult(clientConfig ClientConfig, check_name string) *Result {
 	result := new(Result)
+	result.wrapOutput = true
 
 	result.Client = clientConfig.Name
 	// host name schema is stb.<location-name>.loc.swiftnetworks.com.au
@@ -74,8 +76,12 @@ func (r *Result) SetOutput(rows []string) {
 
 	switch r.Check.CheckType {
 	case "metric":
-		for _, row := range rows {
-			r.Check.Output += fmt.Sprintf("%s.%s %d\n", r.ShortName(), row, r.StartTime())
+		if !r.wrapOutput { // mainly for external metrics that provide their own fully qualified lines of output
+			r.Check.Output += strings.Join(rows, "\n")
+		} else {
+			for _, row := range rows {
+				r.Check.Output += fmt.Sprintf("%s.%s %d\n", r.ShortName(), row, r.StartTime())
+			}
 		}
 	case "check":
 		r.Check.Output = strings.Join(rows, "")
@@ -123,6 +129,10 @@ func (r *Result) SetCommand(command string) {
 
 func (r *Result) SetType(checktype string) {
 	r.Check.CheckType = checktype
+}
+
+func (r *Result) SetWrapOutput(wrapOutput bool) {
+	r.wrapOutput = wrapOutput
 }
 
 func (r *Result) calculate_duration() {
