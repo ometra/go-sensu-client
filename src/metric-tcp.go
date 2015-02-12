@@ -38,5 +38,5 @@ func main() {
 		fmt.Println("Error:", err)
 		os.Exit(2)
 	}
-	fmt.Println(strings.Join(r.Output(), "\n"))
+	fmt.Println(strings.Join(r.OutputAsStrings(), "\n"))
 }

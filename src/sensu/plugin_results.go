@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"plugins"
 	"strings"
 	"time"
 )
@@ -72,19 +73,30 @@ func NewResult(clientConfig ClientConfig, check_name string) *Result {
 
 // takes each of our lines of output and prefixes the system we are checking
 // and suffixes the timestamp when we checked
-func (r *Result) SetOutput(rows []string) {
+func (r *Result) SetOutput(rows []plugins.ResultStat) {
 
 	switch r.Check.CheckType {
 	case "metric":
 		if !r.wrapOutput { // mainly for external metrics that provide their own fully qualified lines of output
-			r.Check.Output += strings.Join(rows, "\n")
-		} else {
 			for _, row := range rows {
-				r.Check.Output += fmt.Sprintf("%s.%s %d\n", r.ShortName(), row, r.StartTime())
+				r.Check.Output += row.Output + "\n"
+			}
+		} else {
+			var t uint
+			for _, row := range rows {
+				if row.TimeIsSet {
+					t = uint(row.Time.Unix())
+				} else {
+					t = r.StartTime()
+				}
+
+				r.Check.Output += fmt.Sprintf("%s.%s %d\n", r.ShortName(), row.Output, t)
 			}
 		}
 	case "check":
-		r.Check.Output = strings.Join(rows, "")
+		for _, row := range rows {
+			r.Check.Output += row.Output
+		}
 	}
 }
 

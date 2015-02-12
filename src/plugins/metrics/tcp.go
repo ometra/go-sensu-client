@@ -117,14 +117,28 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	tcp.localAddress = strings.Split(iface.String(), "/")[0]
 
 	// does the remoteAddress look like an IP address?
-	remoteIp, err := getRemoteAddress(tcp.remoteAddress);
+	remoteIp, err := getRemoteAddress(tcp.remoteAddress)
 	if err != nil {
-		return err;
+		return err
 	}
 
+	// if we are storing our reboots for stat collection
 	if "" != tcp.rebootStatFile {
-		rebootCount = tcp.getRebootCount()
-		r.Add(fmt.Sprintf("tcp.reboot-count %d", rebootCount))
+		var recoverCount int
+		rebootCount, rebootTime := tcp.getRebootCount()
+
+		recoverCount = 0
+		if rebootCount > 0 {
+			recoverCount = 1
+		} else {
+			// make sure we have a current time stamp if we did not reboot
+			rebootTime = uint(time.Now().Unix())
+		}
+
+		r.AddWithTime(fmt.Sprintf("tcp.reboot-count %d", rebootCount), time.Unix(int64(rebootTime), 0))
+		r.Add(fmt.Sprintf("tcp.recovery-count %d", recoverCount))
+
+		// finally set our stats back to 0 (now that we have reported them)
 		tcp.setRebootCount(uint(0))
 	}
 
@@ -160,24 +174,34 @@ func (tcp *TcpStats) ShowUsage() {
 	tcp.flags.PrintDefaults()
 }
 
-func (tcp *TcpStats) getRebootCount() uint {
+func (tcp *TcpStats) getRebootCount() (uint, uint) {
 	var count uint
+	rebootTime := uint(time.Now().Unix())
+
 	content, err := ioutil.ReadFile(tcp.rebootStatFile)
 	if err != nil {
-		return 0
+		return 0, rebootTime
 	}
 	// we have an existing count!
-	c, err := strconv.ParseUint(string(content), 10, 32)
+	data := strings.Split(string(content), ",")
+	c, err := strconv.ParseUint(data[0], 10, 32)
 	if err != nil {
 		c = 0
 	}
-	count = uint(c)
 
-	return count
+	count = uint(c)
+	if len(data) == 2 {
+		t, err := strconv.ParseUint(data[1], 10, 32)
+		if nil == err {
+			rebootTime = uint(t)
+		}
+	}
+
+	return count, rebootTime
 }
 
 func (tcp *TcpStats) setRebootCount(count uint) {
-	value := []byte(fmt.Sprintf("%d", count))
+	value := []byte(fmt.Sprintf("%d,%d", count, time.Now().Unix()))
 	err := ioutil.WriteFile(tcp.rebootStatFile, value, os.FileMode(0644))
 	if err != nil {
 		log.Println(err)

@@ -32,9 +32,15 @@ type PluginConfig struct {
 type Status int // check status - not used for metrics
 
 type Result struct {
-	output       []string
+	output       []ResultStat
 	runStatus    Status
 	noOutputWrap bool
+}
+
+type ResultStat struct {
+	Output    string
+	Time      time.Time
+	TimeIsSet bool
 }
 
 var statusLookupTable = map[Status]string{
@@ -55,11 +61,25 @@ func GetPlugin(name string) SensuPluginInterface {
 }
 
 func (r *Result) Add(output string) {
-	r.output = append(r.output, output)
+	stat := ResultStat{Output: output, TimeIsSet: false}
+	r.output = append(r.output, stat)
 }
 
-func (r *Result) Output() []string {
+func (r *Result) AddWithTime(output string, t time.Time) {
+	stat := ResultStat{Output: output, Time: t, TimeIsSet: true}
+	r.output = append(r.output, stat)
+}
+
+func (r *Result) Output() []ResultStat {
 	return r.output
+}
+
+func (r *Result) OutputAsStrings() []string {
+	var o []string
+	for _, stat := range r.output {
+		o = append(o, stat.Output)
+	}
+	return o
 }
 
 func (r *Result) SetStatus(runStatus Status) {
