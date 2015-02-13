@@ -36,11 +36,14 @@ type TcpStats struct {
 	remoteAddress    string
 	localAddress     string
 	networkPort      int
-	timeout          int
+	timeout          float64
 	workingTimeout   time.Duration
+	retryCount       int
 	reboot           bool
 	rebootStatFile   string
 	hostNiceName     string
+
+	failedNetwork bool
 }
 
 func init() {
@@ -54,7 +57,8 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	tcp.flags.StringVar(&tcp.listenInterface, "i", "", "The network interface to listen on")
 	tcp.flags.StringVar(&tcp.remoteAddress, "host", "", "The Network Address to ping")
 	tcp.flags.IntVar(&tcp.networkPort, "port", 22, "The Port to SYN (Ping)")
-	tcp.flags.IntVar(&tcp.timeout, "timeout", 10, "Number of seconds to wait for a response")
+	tcp.flags.Float64Var(&tcp.timeout, "timeout", 10, "Number of seconds to wait for a response")
+	tcp.flags.IntVar(&tcp.retryCount, "retry-count", 3, "The number of times to retry before failing")
 	tcp.flags.BoolVar(&tcp.reboot, "reboot", false, "If the network is up and ping does not work - reboot")
 	tcp.flags.StringVar(&tcp.rebootStatFile, "reboot-stat-file", "", "If specified this file is written to before the reboot action and a system.reboot.tcp counter sent after reboot")
 
@@ -78,7 +82,12 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 		return TCP_STATS_NAME, fmt.Errorf("You need to specify a host to ping! e.g.: -host 10.0.0.1")
 	}
 
-	tcp.workingTimeout = time.Duration(tcp.timeout) * time.Second
+	tcp.workingTimeout, err = time.ParseDuration(fmt.Sprintf("%0.0fms", tcp.timeout*1000))
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Printf("Working Duration Timeout: %s", tcp.workingTimeout.String())
 
 	r := regexp.MustCompile("[^0-9a-zA-Z]")
 	tcp.hostNiceName = r.ReplaceAllString(tcp.remoteAddress, "_")
@@ -112,9 +121,11 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	iface, err := interfaceAddress(tcp.listenInterface)
 	if err != nil {
 		log.Print(err)
-		return err
+		// network is in a failed state?
+		tcp.failedNetwork = true
+	} else {
+		tcp.localAddress = strings.Split(iface.String(), "/")[0]
 	}
-	tcp.localAddress = strings.Split(iface.String(), "/")[0]
 
 	// does the remoteAddress look like an IP address?
 	remoteIp, err := getRemoteAddress(tcp.remoteAddress)
@@ -123,7 +134,7 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	}
 
 	// if we are storing our reboots for stat collection
-	if "" != tcp.rebootStatFile {
+	if "" != tcp.rebootStatFile && !tcp.failedNetwork {
 		var recoverCount int
 		rebootCount, rebootTime := tcp.getRebootCount()
 
@@ -142,25 +153,40 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 		tcp.setRebootCount(uint(0))
 	}
 
-	latency, errPing := tcp.ping(tcp.localAddress, remoteIp, uint16(tcp.networkPort))
-	if errPing == nil {
-		r.Add(fmt.Sprintf("tcp.latency.%s.ms %0.2f", tcp.hostNiceName, float32(latency)/float32(time.Millisecond)))
-	} else {
-
-		if tcp.reboot {
-			// if we have a file to write to, write a reboot counter
-			if "" != tcp.rebootStatFile {
-				rebootCount++
-				tcp.setRebootCount(rebootCount)
-				r.Add(fmt.Sprintf("tcp.reboot-count %d", rebootCount))
+	var counter int
+	var worked bool
+	var totalLatency time.Duration
+	if "" != tcp.localAddress {
+		for counter < tcp.retryCount {
+			counter++
+			latency, errPing := tcp.ping(tcp.localAddress, remoteIp, uint16(tcp.networkPort))
+			if errPing == nil {
+				totalLatency += latency
+				r.Add(fmt.Sprintf("tcp.latency.%s.ms %0.2f", tcp.hostNiceName, float32(totalLatency)/float32(time.Millisecond)))
+				r.Add(fmt.Sprintf("tcp.try-count.%s %d", tcp.hostNiceName, counter))
+				worked = true
+				tcp.failedNetwork = false
+				break
 			}
-			log.Println("TCP Check Failed - Rebooting the system in 2 seconds")
-			// this gives the system time to flush
-
-			time.AfterFunc(2*time.Second, func() {
-				tcp.performReboot()
-			})
+			totalLatency += tcp.workingTimeout
+			log.Printf("Failed TCP Ping check %d...", counter)
 		}
+	}
+
+	if !worked && tcp.reboot {
+		tcp.failedNetwork = true
+		// if we have a file to write to, write a reboot counter
+		if "" != tcp.rebootStatFile {
+			rebootCount = 1
+			tcp.setRebootCount(rebootCount)
+			r.Add(fmt.Sprintf("tcp.reboot-count %d", rebootCount))
+		}
+		log.Println("TCP Check Failed - Rebooting the system in 2 seconds")
+		// this gives the system time to flush
+
+		time.AfterFunc(2*time.Second, func() {
+			// tcp.performReboot()
+		})
 	}
 
 	return nil
@@ -201,7 +227,15 @@ func (tcp *TcpStats) getRebootCount() (uint, uint) {
 }
 
 func (tcp *TcpStats) setRebootCount(count uint) {
-	value := []byte(fmt.Sprintf("%d,%d", count, time.Now().Unix()))
+	currentValue, currentTimestamp := tcp.getRebootCount()
+
+	newTimeStamp := time.Now().Unix()
+
+	if currentValue == 1 && count == 1 { // keep the timestamp from the intial failure
+		newTimeStamp = int64(currentTimestamp)
+	}
+
+	value := []byte(fmt.Sprintf("%d,%d", count, newTimeStamp))
 	err := ioutil.WriteFile(tcp.rebootStatFile, value, os.FileMode(0644))
 	if err != nil {
 		log.Println(err)
@@ -210,18 +244,27 @@ func (tcp *TcpStats) setRebootCount(count uint) {
 
 func (tcp *TcpStats) ping(localAddr, remoteAddr string, port uint16) (time.Duration, error) {
 	receiveDuration := make(chan time.Duration)
+	receiveError := make(chan error)
 	timeoutChannel := make(chan bool)
 
 	// limit ourselves to 10 seconds
 	time.AfterFunc(tcp.workingTimeout, func() { timeoutChannel <- true })
 
 	go func() {
-		receiveDuration <- latency(localAddr, remoteAddr, port)
+		t, err := latency(localAddr, remoteAddr, port)
+		if err != nil {
+			receiveError <- err
+		} else {
+			receiveDuration <- t
+		}
 	}()
 
 	select {
 	case d := <-receiveDuration:
 		return d, nil
+	case e := <-receiveError:
+		log.Println(e)
+		return 0, e
 	case <-timeoutChannel:
 		return time.Duration(0), fmt.Errorf("Failed to TCP ping remote host")
 	}

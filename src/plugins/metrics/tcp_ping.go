@@ -19,14 +19,14 @@ package metrics
 import (
 	"bytes"
 	"encoding/binary"
-	"time"
-	"net"
-	"log"
-	"strings"
-	"strconv"
-	"math/rand"
-	"sync"
 	"fmt"
+	"log"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -98,7 +98,7 @@ func (tcp *TCPHeader) Marshal() []byte {
 	mix = uint16(tcp.DataOffset)<<12 | // top 4 bits
 		uint16(tcp.Reserved)<<9 | // 3 bits
 		uint16(tcp.ECN)<<6 | // 3 bits
-			uint16(tcp.Ctrl) // bottom 6 bits
+		uint16(tcp.Ctrl) // bottom 6 bits
 	binary.Write(buf, binary.BigEndian, mix)
 
 	binary.Write(buf, binary.BigEndian, tcp.Window)
@@ -160,19 +160,18 @@ func csum(data []byte, srcip, dstip [4]byte) uint16 {
 	return uint16(^sum)
 }
 
-
-func latency(localAddr string, remoteHost string, port uint16) time.Duration {
+func latency(localAddr string, remoteHost string, port uint16) (time.Duration, error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	var receiveTime time.Time
 
 	remoteAddr, err := getRemoteAddress(remoteHost)
 	if err != nil {
-		return time.Duration(0)
+		return time.Duration(0), err
 	}
 
 	go func() {
-		receiveTime = receiveSynAck(localAddr, remoteAddr)
+		receiveTime, err = receiveSynAck(localAddr, remoteAddr)
 		wg.Done()
 	}()
 
@@ -180,14 +179,14 @@ func latency(localAddr string, remoteHost string, port uint16) time.Duration {
 	sendTime := sendSyn(localAddr, remoteAddr, port)
 
 	wg.Wait()
-	return receiveTime.Sub(sendTime)
+	return receiveTime.Sub(sendTime), err
 }
 
 /**
 Used in a couple of places. It works around sometimes net.LookupHost borking on IP addresses
- */
-func getRemoteAddress(address string) (string,error) {
-	remoteAddr := "";
+*/
+func getRemoteAddress(address string) (string, error) {
+	remoteAddr := ""
 	if ip := net.ParseIP(address); ip != nil {
 		remoteAddr = ip.String()
 	} else {
@@ -211,9 +210,22 @@ func interfaceAddress(ifaceName string) (net.Addr, error) {
 	if err != nil {
 		return dummy, fmt.Errorf("iface.Addrs: %s", err)
 	}
+	if len(addrs) == 0 {
+		return dummy, fmt.Errorf("iface.Addrs: No Addresses")
+	}
+
+	// look for an IPv4 Addr
+	ip, _, err := net.ParseCIDR(addrs[0].String())
+	if err != nil {
+		return dummy, err
+	}
+
+	if nil == ip.To4() {
+		return dummy, fmt.Errorf("No IPv4 Addresses for interface %s", ifaceName)
+	}
+
 	return addrs[0], nil
 }
-
 
 func sendSyn(laddr, raddr string, port uint16) time.Time {
 	var sendTime time.Time
@@ -271,18 +283,18 @@ func to4byte(addr string) [4]byte {
 	return [4]byte{byte(b0), byte(b1), byte(b2), byte(b3)}
 }
 
-func receiveSynAck(localAddress, remoteIp string) time.Time {
+func receiveSynAck(localAddress, remoteIp string) (time.Time, error) {
 	var receiveTime time.Time
 	netaddr, err := net.ResolveIPAddr("ip4", localAddress)
 	if err != nil {
 		log.Printf("net.ResolveIPAddr: %s. %s\n", localAddress, netaddr)
-		return receiveTime
+		return receiveTime, err
 	}
 
 	conn, err := net.ListenIP("ip4:tcp", netaddr)
 	if err != nil {
 		log.Printf("ListenIP: %s\n", err)
-		return receiveTime
+		return receiveTime, err
 	}
 	for {
 		buf := make([]byte, 1024)
@@ -303,5 +315,5 @@ func receiveSynAck(localAddress, remoteIp string) time.Time {
 			break
 		}
 	}
-	return receiveTime
+	return receiveTime, nil
 }

@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"log"
+	"os"
 	"time"
 )
 
@@ -63,6 +65,10 @@ func GetPlugin(name string) SensuPluginInterface {
 func (r *Result) Add(output string) {
 	stat := ResultStat{Output: output, TimeIsSet: false}
 	r.output = append(r.output, stat)
+	if "" != os.Getenv("DEBUG") {
+
+		log.Println("Check/Metric: ", output) // handy json debug printing
+	}
 }
 
 func (r *Result) AddWithTime(output string, t time.Time) {
