@@ -96,6 +96,12 @@ func (s *Subscriber) handle(d amqp.Delivery) {
 		}
 	}()
 
+	if nil == d.Body {
+		s.logger.Println("Delivery had nil body")
+		d.Reject(false) // discard this message
+		return
+	}
+
 	checkConfig := new(plugins.PluginConfig)
 	err := json.Unmarshal(d.Body, checkConfig)
 	if nil != err {
