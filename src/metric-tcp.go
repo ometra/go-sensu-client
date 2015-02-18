@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"plugins"
 	"plugins/metrics"
@@ -31,6 +32,8 @@ func main() {
 		m.ShowUsage()
 		os.Exit(1)
 	}
+
+	log.SetOutput(os.Stderr)
 
 	r := new(plugins.Result)
 	err = m.Gather(r)

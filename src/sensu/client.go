@@ -9,12 +9,13 @@ import (
 type Processor interface {
 	Init(MessageQueuer, *Config) error
 	Start()
-	Stop()
+	Stop(force bool)
 }
 
 type Client struct {
 	config    *Config
 	processes []Processor
+	q         *Rabbitmq
 }
 
 func NewClient(c *Config, p []Processor) *Client {
@@ -24,45 +25,52 @@ func NewClient(c *Config, p []Processor) *Client {
 	}
 }
 
-func (c *Client) Start() {
+func (c *Client) Start(stop chan bool) {
 	var disconnected chan *amqp.Error
 	connected := make(chan bool)
 
-	q := NewRabbitmq(c.config.Rabbitmq)
-	go q.Connect(connected)
+	c.q = NewRabbitmq(c.config.Rabbitmq)
+	go c.q.Connect(connected)
 
 	for {
 		select {
 		case <-connected:
 			for _, proc := range c.processes {
-				err := proc.Init(q, c.config)
+				err := proc.Init(c.q, c.config)
 				if err != nil {
 					panic(err) //TODO: Add recovery error handling
 				}
 				go proc.Start()
 			}
 			// Enable disconnect channel
-			disconnected = q.Disconnected()
+			disconnected = c.q.Disconnected()
+
 		case errd := <-disconnected:
 			// Disable disconnect channel
 			disconnected = nil
 
 			log.Printf("RabbitMQ disconnected: %s", errd)
-			c.Stop()
+			c.Stop(false)
 
 			time.Sleep(10 * time.Second)
-			go q.Connect(connected)
+			go c.q.Connect(connected)
+
+		case <-stop:
+			c.Shutdown()
+			return
 		}
 	}
 }
 
-func (c *Client) Stop() {
+func (c *Client) Stop(force bool) {
 	log.Print("STOP: Closing down processes")
 	for _, proc := range c.processes {
-		go proc.Stop()
+		proc.Stop(force)
 	}
 }
 
 func (c *Client) Shutdown() {
 	// Disconnect rabbitmq
+	c.q.Disconnect()
+	c.Stop(true)
 }

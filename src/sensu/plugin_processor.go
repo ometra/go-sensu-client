@@ -1,9 +1,11 @@
 package sensu
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"plugins"
 	"plugins/checks"
 	"plugins/metrics"
@@ -13,23 +15,29 @@ import (
 )
 
 type PluginProcessor struct {
-	q            MessageQueuer
-	config       *Config
-	jobs         map[string]plugins.SensuPluginInterface
-	jobsConfig   map[string]plugins.PluginConfig
-	close        chan bool
-	closeResults chan bool
-	results      chan *Result
-	logger       *log.Logger
+	q                            MessageQueuer
+	config                       *Config
+	jobs                         map[string]plugins.SensuPluginInterface
+	jobsConfig                   map[string]plugins.PluginConfig
+	close                        chan bool
+	publishResultsChan           chan bool
+	saveResultsChan              chan bool
+	results                      chan ResultInterface
+	logger                       *log.Logger
+	statsCollecting              bool // whether or not to set off more jobs
+	stopCollectingOnNoConnection bool // whether or not to stop collecting stats when the connection to RabbitMQ drops
+	statStore                    string
 }
 
 // used to create a new processor instance.
-func NewPluginProcessor(w io.Writer) *PluginProcessor {
+func NewPluginProcessor(w io.Writer, statStore string) *PluginProcessor {
 	proc := new(PluginProcessor)
 	proc.jobsConfig = make(map[string]plugins.PluginConfig)
-	proc.results = make(chan *Result, 600) // queue of 600 buffered results
+	proc.results = make(chan ResultInterface, 600) // queue of 600 buffered results
+	proc.publishResultsChan = make(chan bool)
+	proc.saveResultsChan = make(chan bool)
 	proc.logger = log.New(w, "Plugin: ", log.LstdFlags)
-	proc.closeResults = make(chan bool)
+	proc.statStore = statStore
 
 	return proc
 }
@@ -128,7 +136,15 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
 
 // gets the Gather of checks/metrics going
 func (p *PluginProcessor) Start() {
-	go p.publish()
+	go p.publishResults()
+	if p.statsCollecting {
+		// since Start() gets called when we have a good Rabbit connection - we can stop storing our results in a file
+		p.saveResultsChan <- false
+		return
+	}
+
+	// we are collecting results now - used so that we do not fire up a second copy of the stats gathering
+	p.statsCollecting = true
 
 	clientConfig := p.config.Client
 
@@ -144,11 +160,11 @@ func (p *PluginProcessor) Start() {
 				result := NewResult(clientConfig, theJobName)
 				result.SetCommand(config.Command)
 
-				presult := new(plugins.Result)
+				plugin_result := new(plugins.Result)
 
-				err := theJob.Gather(presult)
-				result.SetWrapOutput(!presult.IsNoWrapOutput())
-				result.SetOutput(presult.Output())
+				err := theJob.Gather(plugin_result)
+				result.SetWrapOutput(!plugin_result.IsNoWrapOutput())
+				result.SetOutput(plugin_result.Output())
 				result.SetCheckStatus(theJob.GetStatus())
 
 				if nil != err {
@@ -169,7 +185,7 @@ func (p *PluginProcessor) Start() {
 				select {
 				case cont := <-reset:
 					if cont {
-						timer.Reset(config.Interval * time.Second) // need to grab this from the config - defaulting for 15 seconds
+						timer.Reset(config.Interval * time.Second)
 					} else {
 						timer.Stop()
 					}
@@ -182,20 +198,89 @@ func (p *PluginProcessor) Start() {
 }
 
 // Puts a halt to all of our checks/metrics gathering
-func (p *PluginProcessor) Stop() {
-	//p.logger.Printf("STOP: Closing %d Plugins: ", len(p.jobs))
-	//for name, _ := range p.jobs {
-	//	p.logger.Print("STOP: Closing Plugin: ", name)
-	//	p.close <- true
-	//}
+func (p *PluginProcessor) Stop(force bool) {
 
-	// and one for the publish function
-	p.closeResults <- true
+	// we *could* stop the automated stat gathering here by sending close messages
+	// but we have found that gathering stats while the rabbitmq connection is broken
+	// to be rather handy
+	if p.stopCollectingOnNoConnection || force {
+		p.logger.Printf("STOP: Closing %d Plugins: ", len(p.jobs))
+		p.statsCollecting = false
+		for name, _ := range p.jobs {
+			p.logger.Print("STOP: Closing Plugin: ", name)
+			p.close <- true
+		}
+		p.publishResultsChan <- false
+	} else {
+		// tell our result publishing to stop.
+		p.publishResultsChan <- true
+	}
+}
+
+func (p *PluginProcessor) loadResults() {
+	// get the results from file
+	f, err := os.OpenFile(p.statStore, os.O_RDWR|os.O_EXCL, 0600)
+	if err != nil {
+		return
+	}
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		sr := new(SavedResult)
+		sr.SetResult(scanner.Text())
+		p.results <- sr
+	}
+
+	// once we have the contents of the file sent back to the result queue, truncate the file!
+	f.Truncate(0)
+	f.Close()
+}
+
+// instead of writing the stats to RabbitMQ (i.e. rabbit connection has gone away)
+// we write them to a file instead, so that we may send them on once the connection
+// to rabbit has been reestablished
+func (p *PluginProcessor) saveResults() {
+	// does the stat store file exist?
+	p.logger.Printf("START: Disk store (%s) for results...", p.statStore)
+	var f *os.File
+	for {
+		select {
+		case result := <-p.results:
+			if result.HasOutput() {
+				finfo, err := os.Stat(p.statStore) // is there a file here?
+				if err != nil {
+					// no file? create one!
+					f, err = os.OpenFile(p.statStore, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
+				} else {
+					// oh, yes, let's open it (if we do not have too much in there already)
+					if finfo.Size() > 104857600 {
+						err = fmt.Errorf("The stat file is too large, discarding stat")
+					} else {
+						f, err = os.OpenFile(p.statStore, os.O_APPEND|os.O_WRONLY|os.O_EXCL, 0600)
+					}
+				}
+
+				if err != nil {
+					p.logger.Println("Cannot write to stat store,", err)
+
+				} else {
+					f.Write(result.toJson())
+					f.WriteString("\n")
+					f.Close()
+				}
+			}
+		case <-p.saveResultsChan:
+			p.logger.Println("STOP: Result saving to file...")
+			go p.publishResults()
+			return
+		}
+	}
 }
 
 // our result publishing. will publish results until we call PluginProcessor.Stop()
-func (p *PluginProcessor) publish() {
-
+func (p *PluginProcessor) publishResults() {
+	go p.loadResults()
+	p.logger.Println("START: Result publishing to RabbitMQ...")
 	for {
 		//p.logger.Printf("Result Queue State: %d/%d\n", len(p.results), cap(p.results))
 		select {
@@ -206,8 +291,11 @@ func (p *PluginProcessor) publish() {
 					p.results <- result // requeue the failed result
 				}
 			}
-		case <-p.closeResults:
-			p.logger.Print("STOP: Shutting down the result publisher")
+		case cont := <-p.publishResultsChan:
+			p.logger.Print("STOP: Shutting down result publishing to RabbitMQ")
+			if cont {
+				go p.saveResults()
+			}
 			return
 		}
 	}

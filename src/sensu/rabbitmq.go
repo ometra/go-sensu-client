@@ -54,6 +54,10 @@ func (r *Rabbitmq) Connect(connected chan bool) {
 	}
 }
 
+func (r *Rabbitmq) Disconnect() {
+	r.conn.Close()
+}
+
 func (r *Rabbitmq) Disconnected() chan *amqp.Error {
 	return r.disconnected
 }

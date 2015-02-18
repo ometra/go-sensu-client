@@ -35,12 +35,22 @@ type check struct {
 	time_taken time.Duration
 }
 
+type ResultInterface interface {
+	HasOutput() bool
+	GetPayload() amqp.Publishing
+	toJson() []byte
+}
+
 type Result struct {
 	Client            string `json:"client"` // DNS Name for this host
 	client_short_name string
 	Check             check  `json:"check"`
 	checkStatus       string // for checks we want to know if they are critical/warning/unknown/ok
 	wrapOutput        bool
+}
+
+type SavedResult struct {
+	result []byte
 }
 
 // sets up the common result data
@@ -168,9 +178,32 @@ func (result *Result) toJson() []byte {
 }
 
 func (result *Result) GetPayload() amqp.Publishing {
+	return getRabbitPayload(result.toJson())
+}
+
+func getRabbitPayload(json []byte) amqp.Publishing {
 	return amqp.Publishing{
 		ContentType:  "application/octet-stream",
-		Body:         result.toJson(),
+		Body:         json,
 		DeliveryMode: amqp.Transient,
 	}
+
+}
+
+// Saved Results are just wrappers around JSON blobs
+
+func (sr *SavedResult) SetResult(json string) {
+	sr.result = []byte(json)
+}
+
+func (sr *SavedResult) HasOutput() bool {
+	return len(sr.result) > 0
+}
+
+func (sr *SavedResult) GetPayload() amqp.Publishing {
+	return getRabbitPayload(sr.result)
+}
+
+func (sr *SavedResult) toJson() []byte {
+	return []byte(sr.result)
 }

@@ -82,7 +82,7 @@ func (s *Subscriber) Start() {
 	}
 }
 
-func (s *Subscriber) Stop() {
+func (s *Subscriber) Stop(force bool) {
 	s.logger.Print("STOP: Shutting down subscribers")
 	s.done <- nil
 }
@@ -118,12 +118,13 @@ func (s *Subscriber) handle(d amqp.Delivery) {
 	result := NewResult(clientConfig, checkConfig.Name)
 	result.SetCommand(checkConfig.Command)
 
-	presult := new(plugins.Result)
+	plugin_result := new(plugins.Result)
 
 	theJob.Init(*checkConfig)
 
-	err = theJob.Gather(presult)
-	result.SetOutput(presult.Output())
+	err = theJob.Gather(plugin_result)
+	result.SetWrapOutput(!plugin_result.IsNoWrapOutput())
+	result.SetOutput(plugin_result.Output())
 	result.SetCheckStatus(theJob.GetStatus())
 
 	if nil != err {
