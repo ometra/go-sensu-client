@@ -74,7 +74,9 @@ func runner(stop chan bool) {
 	}
 	c := sensu.NewClient(settings, processes)
 
+	// our stop message is dequeued by the sensu-client
 	c.Start(stop)
+	// now send back a message letting the caller know we are done!
 	stop <- true
 }
 
@@ -85,7 +87,7 @@ func main() {
 	}
 
 	osSignalChan := make(chan os.Signal, 3)
-	signal.Notify(osSignalChan, os.Interrupt, os.Kill, syscall.SIGUSR1)
+	signal.Notify(osSignalChan, os.Interrupt, os.Kill, syscall.SIGHUP)
 
 	stop := make(chan bool)
 	run := make(chan bool, 1)
@@ -93,21 +95,23 @@ func main() {
 
 	interrupt_count := 0
 
+	// our main running loop
 	for {
 
 		select {
-		case <-run:
+		case <-run: // we need to spawn a new runner!
 			go runner(stop)
 
-		case sig := <-osSignalChan:
-			log.Println("Got a signal! ", sig)
+		case sig := <-osSignalChan: //signals from the OS
 			switch sig {
-			case os.Interrupt, os.Kill:
+			case os.Interrupt, os.Kill: // user/system wants us to stop - let's do it nice and cleanly
 				interrupt_count++
-				if interrupt_count > 1 {
+
+				if interrupt_count > 1 { // if all else fails knife ourselves in the head
 					log.Println("That's the second interrupt - forcing exit!")
 					os.Exit(0)
 				}
+				// send our stop signal and then wait for a response
 				log.Println("Closing all the things!")
 				stop <- true
 				log.Println("... waiting")
@@ -115,7 +119,7 @@ func main() {
 				return
 			default:
 				log.Println("Reloading our Config")
-				// reload our config!
+				// reload our config! start by stopping our current setup and then starting again
 				stop <- true
 				<-stop
 				run <- true
