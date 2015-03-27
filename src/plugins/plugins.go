@@ -22,7 +22,7 @@ type SensuPluginInterface interface {
 	GetStatus() string
 }
 
-// Used to intialise our built in checks and metrics
+// Used to initialise our built in checks and metrics
 type PluginConfig struct {
 	Type       string        `json:"type"`
 	Name       string        `json:"name"`
@@ -62,7 +62,7 @@ func Register(handle string, plugin SensuPluginInterface) {
 	pluginList[handle] = plugin
 }
 
-// retreives a plugin by name
+// retrieves a plugin by name
 func GetPlugin(name string) SensuPluginInterface {
 	return pluginList[name]
 }
