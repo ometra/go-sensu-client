@@ -166,7 +166,7 @@ func (p *PluginProcessor) Start() {
                 plugin_result := new(plugins.Result)
 
                 err := theJob.Gather(plugin_result)
-                result.SetWrapOutput(!plugin_result.IsNoWrapOutput())
+                result.SetWrapOutput(!plugin_result.IsNoWrapOutput()) // for external checks
                 result.SetOutput(plugin_result.Output())
                 result.SetCheckStatus(theJob.GetStatus())
 

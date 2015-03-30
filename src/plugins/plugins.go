@@ -77,12 +77,6 @@ func (r *Result) Add(output string) {
 	}
 }
 
-// adds a result with a specified time. converted into a unix timestamp later
-func (r *Result) AddWithTime(output string, t time.Time) {
-	stat := ResultStat{Output: output, Time: t}
-	r.output = append(r.output, stat)
-}
-
 // grabs all of the results
 func (r *Result) Output() []ResultStat {
 	return r.output
