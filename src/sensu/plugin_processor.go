@@ -12,6 +12,8 @@ import (
     "strconv"
     "strings"
     "time"
+    "regexp"
+    "github.com/bitly/go-simplejson"
 )
 
 type PluginProcessor struct {
@@ -87,6 +89,50 @@ func newCheckConfig(json interface{}) plugins.PluginConfig {
     return conf
 }
 
+// does the funky command line variable replacing stuff
+func commandReplace(command string, walkingConfigStart *simplejson.Json) string {
+    commandRe := regexp.MustCompile(":::(.*?):::")
+
+    command_bytes := commandRe.ReplaceAllFunc([]byte(command), func(match_bytes []byte) []byte {
+        // make sure the :::'s are removed... because they are in match_bytes
+        match_string := strings.Trim(string(match_bytes), ":")
+
+        // so we should have a string like: value.value|default
+        values := strings.Split(match_string, "|");
+        var default_value, replace_var string
+        replace_var = values[0]
+        if len(values) > 1 {
+            default_value = values[1]
+        }
+
+        // walk the value.value through the config tree
+        steps := strings.Split(replace_var, ".")
+        var found bool = true;
+        var ok bool;
+        walkingConfig := walkingConfigStart
+        for _, step := range steps {
+            if nil == walkingConfig {
+                found = false
+                break
+            }
+            walkingConfig, ok = walkingConfig.CheckGet(step)
+            if !ok {
+                found = false;
+                break
+            }
+        }
+
+        if found {
+            bytes, _ := walkingConfig.Bytes();
+            return bytes;
+        } else {
+            return []byte(default_value);
+        }
+    })
+
+    return string(command_bytes);
+}
+
 // helper function to add a check to the queue of checks
 func (p *PluginProcessor) AddJob(job plugins.SensuPluginInterface, checkConfig plugins.PluginConfig) {
     name, err := job.Init(checkConfig)
@@ -94,6 +140,9 @@ func (p *PluginProcessor) AddJob(job plugins.SensuPluginInterface, checkConfig p
         p.logger.Printf("Failed to initialise check: (%s) %s\n", name, err)
         return
     }
+
+    checkConfig.Command = commandReplace(checkConfig.Command, p.config.Data().Get("client"))
+
     p.logger.Printf("Scheduling job: %s (%s) every %d seconds", name, checkConfig.Command, checkConfig.Interval)
 
     p.jobs[name] = job
@@ -129,6 +178,7 @@ func (p *PluginProcessor) Init(q MessageQueuer, config *Config) error {
         check = getCheckHandler(check_type, config.Type)
 
         config.Name = check_type
+
         p.AddJob(check, config)
     }
 
