@@ -49,7 +49,14 @@ Since we are targetting more than 1 platform here (we are wanting to run this
 client under android after all) the build script is a shortcut for making all of
 our targets.
 
-### Building under Golang >= 1.4
+### Building For ARM
+Golang makes it really easy to cross compile for ARM.
+
+	$ GOARCH=arm go build sensu-client.go
+	
+The binaries have been tested against the RPi and Rpi2 under Raspbian and they work fine as well! 
+
+### Building under Golang >= 1.4 for Android/ARM
 To build for the android platform (GOOS=android) you need to do the following:
 
 I placed all the downloads into ~/dev
@@ -67,12 +74,15 @@ I placed all the downloads into ~/dev
 	5. Now we can run our sensu build script, change to the go sensu client checked out folder
 		* ./build.sh
 
+### Building for MIPS
+Stay tuned....
+
 Running
 -------
 You can get some extra debug information by setting the environment variable DEBUG.
 e.g.
 
-	$ DEBUG=1 ./sensu-client-arm
+	$ DEBUG=1 ./sensu-client-armv7-linux
 
 Gotchas
 =======
