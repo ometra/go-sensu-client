@@ -3,3 +3,4 @@ bin/*
 pkg/*
 src/github.com/*
 src/config/config.json
+sensu-client.iml
