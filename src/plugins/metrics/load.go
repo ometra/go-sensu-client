@@ -21,7 +21,6 @@ func init() {
 	plugins.Register("load_metrics", new(LoadStats))
 }
 
-
 func (load *LoadStats) Init(config plugins.PluginConfig) (string, error) {
 	return "load_metrics", nil
 }

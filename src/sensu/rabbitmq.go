@@ -13,6 +13,7 @@ type MessageQueuer interface {
 	Connect(connected chan bool)
 	Disconnected() chan *amqp.Error
 	ExchangeDeclare(name string, kind string) error
+	NotifyConfirm(chan uint64, chan uint64) (error)
 	QueueDeclare(name string) (amqp.Queue, error)
 	QueueBind(name, key, source string) error
 	Consume(name, consumer string) (<-chan amqp.Delivery, error)
@@ -73,6 +74,18 @@ func (r *Rabbitmq) ExchangeDeclare(name, kind string) error {
 		nil,
 	)
 }
+
+// enables confirmation on the channels and returns the channels to listen on
+func (r *Rabbitmq) NotifyConfirm(ack, nack chan uint64) error {
+	if err := r.channel.Confirm(false); err != nil {
+		return err
+	}
+
+	r.channel.NotifyConfirm(ack, nack)
+
+	return nil
+}
+
 
 func (r *Rabbitmq) QueueDeclare(name string) (amqp.Queue, error) {
 	return r.channel.QueueDeclare(

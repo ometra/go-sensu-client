@@ -3,6 +3,7 @@ package sensu
 import (
 	"github.com/streadway/amqp"
 	"log"
+	"os"
 	"time"
 )
 
@@ -16,12 +17,14 @@ type Client struct {
 	config    *Config
 	processes []Processor
 	q         *Rabbitmq
+	debug     bool
 }
 
 func NewClient(c *Config, p []Processor) *Client {
 	return &Client{
 		config:    c,
 		processes: p,
+		debug:     "" != os.Getenv("DEBUG"),
 	}
 }
 
@@ -38,9 +41,13 @@ func (c *Client) Start(stop chan bool) {
 			for _, proc := range c.processes {
 				err := proc.Init(c.q, c.config)
 				if err != nil {
-					panic(err) //TODO: Add recovery error handling
+					log.Printf("FAIL: Failed to start process %+v", proc)
+				} else {
+					go proc.Start()
+					if c.debug {
+						log.Printf("%T was started", proc)
+					}
 				}
-				go proc.Start()
 			}
 			// Enable disconnect channel
 			disconnected = c.q.Disconnected()
@@ -50,7 +57,7 @@ func (c *Client) Start(stop chan bool) {
 			disconnected = nil
 
 			log.Printf("RabbitMQ disconnected: %s", errd)
-			c.Stop(false)
+			c.Stop(false) // tell our processors to stop if they don't need an amqp connection
 
 			time.Sleep(10 * time.Second)
 			go c.q.Connect(connected)
@@ -62,9 +69,18 @@ func (c *Client) Start(stop chan bool) {
 	}
 }
 
+// this asks our processors to stop.
+// force=true if you really want them to shutdown. this is so we can continue to collect stats in the background
 func (c *Client) Stop(force bool) {
-	log.Print("STOP: Closing down processes")
+	var extra string
+	if force {
+		extra = "... forcefully!"
+	}
+	log.Print("STOP: Closing down processes", extra)
 	for _, proc := range c.processes {
+		if c.debug {
+			log.Printf("%T is being stopped %s", proc, extra)
+		}
 		proc.Stop(force)
 	}
 }

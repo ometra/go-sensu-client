@@ -24,7 +24,6 @@ func init() {
 	plugins.Register("wireless-ap_metrics", new(WirelessStats))
 }
 
-
 func (ws *WirelessStats) Init(config plugins.PluginConfig) (string, error) {
 	return "wireless-ap_metrics", ws.setup()
 }

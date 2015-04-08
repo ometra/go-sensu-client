@@ -29,7 +29,6 @@ func init() {
 	plugins.Register("interface_metrics", new(NetworkInterfaceStats))
 }
 
-
 func (iface *NetworkInterfaceStats) Init(config plugins.PluginConfig) (string, error) {
 	iface.flags = flag.NewFlagSet("tcp-metrics", flag.ContinueOnError)
 
@@ -46,8 +45,8 @@ func (iface *NetworkInterfaceStats) Init(config plugins.PluginConfig) (string, e
 	iface.interfaces = make(map[string]bool)
 	if "" != iface.req_interfaces {
 		iface.do_filter = true
-		for _, key := range strings.Split(iface.req_interfaces,",") {
-			iface.interfaces[strings.Trim(key," ")] = true
+		for _, key := range strings.Split(iface.req_interfaces, ",") {
+			iface.interfaces[strings.Trim(key, " ")] = true
 		}
 	}
 

@@ -21,7 +21,6 @@ func init() {
 	plugins.Register("memory_metrics", new(MemoryStats))
 }
 
-
 func (mem *MemoryStats) Init(config plugins.PluginConfig) (string, error) {
 	return "memory_metrics", nil
 }

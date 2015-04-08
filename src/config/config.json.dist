@@ -3,7 +3,7 @@
     "name": "your.host.name",
     "address": "127.0.0.1",
     "subscriptions": ["all"],
-    "version": "0.14.0"
+    "version": "0.16.0"
   },
   "rabbitmq": {
     "host": "remote.rabbitmq.server",

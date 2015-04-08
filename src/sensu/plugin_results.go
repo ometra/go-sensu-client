@@ -1,9 +1,9 @@
 package sensu
 
 import (
-	"github.com/streadway/amqp"
 	"encoding/json"
 	"fmt"
+	"github.com/streadway/amqp"
 	"log"
 	"os"
 	"plugins"
@@ -185,6 +185,7 @@ func getRabbitPayload(json []byte) amqp.Publishing {
 		ContentType:  "application/octet-stream",
 		Body:         json,
 		DeliveryMode: amqp.Transient,
+		Priority:     0,
 	}
 
 }
@@ -193,6 +194,11 @@ func getRabbitPayload(json []byte) amqp.Publishing {
 
 func (sr *SavedResult) SetResult(json string) {
 	sr.result = []byte(json)
+}
+
+func (sr *SavedResult) AppendResult(json string) {
+	b := []byte(json)
+	sr.result = append(sr.result, b...)
 }
 
 func (sr *SavedResult) HasOutput() bool {

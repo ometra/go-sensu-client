@@ -19,11 +19,11 @@ func (iface *NetworkInterfaceStats) createPayload(r *plugins.Result) error {
 		}
 		// get a list of all the files in this path
 		interface_name := interface_path[len(base_path):]
-			if iface.do_filter {
-				if v, ok := iface.interfaces[interface_name]; !ok || !v {
-					return nil
-				}
+		if iface.do_filter {
+			if v, ok := iface.interfaces[interface_name]; !ok || !v {
+				return nil
 			}
+		}
 
 		statistics_path := fmt.Sprintf("%s/statistics/", interface_path)
 		file_err := filepath.Walk(statistics_path, func(file_path string, file_info os.FileInfo, err error) error {
