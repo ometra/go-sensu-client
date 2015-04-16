@@ -16,6 +16,7 @@ type Subscriber struct {
 	logger     *log.Logger
 	config     *Config
 	q          MessageQueuer
+	started    bool
 }
 
 func NewSubscriber(w io.Writer) *Subscriber {
@@ -71,6 +72,7 @@ func (s *Subscriber) Init(q MessageQueuer, c *Config) error {
 
 func (s *Subscriber) Start() {
 	//go s.handle(s.deliveries, s.done)
+	s.started = true
 	var d amqp.Delivery
 	for {
 		select {
@@ -83,8 +85,11 @@ func (s *Subscriber) Start() {
 }
 
 func (s *Subscriber) Stop(force bool) {
-	s.logger.Print("STOP: Shutting down subscribers")
-	s.done <- nil
+	if s.started {
+		s.logger.Print("STOP: Shutting down subscribers")
+		s.done <- nil
+	}
+	s.started = false
 }
 
 func (s *Subscriber) handle(d amqp.Delivery) {

@@ -1,9 +1,9 @@
 package sensu
 
 import (
-	"github.com/streadway/amqp"
 	"encoding/json"
 	"fmt"
+	"github.com/streadway/amqp"
 	"log"
 	"os"
 	"plugins"

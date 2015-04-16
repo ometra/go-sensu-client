@@ -16,6 +16,7 @@ type Keepalive struct {
 	logger *log.Logger
 
 	interval time.Duration
+	started  bool
 }
 
 func NewKeepalive(w io.Writer) *Keepalive {
@@ -37,7 +38,7 @@ func (k *Keepalive) Init(q MessageQueuer, config *Config) error {
 	k.q = q
 	k.config = config
 	k.close = make(chan bool)
-	k.interval = keepaliveInterval;
+	k.interval = keepaliveInterval
 
 	// did the user set a custom interval for keep alive?
 	if json := config.Data().GetPath("client", "keepalive", "interval"); json != nil {
@@ -45,7 +46,7 @@ func (k *Keepalive) Init(q MessageQueuer, config *Config) error {
 			k.interval = time.Duration(d) * time.Second
 		}
 	}
-	k.logger.Printf("Keepalive Interval: %d seconds", k.interval / time.Second)
+	k.logger.Printf("Keepalive Interval: %d seconds", k.interval/time.Second)
 
 	return nil
 }
@@ -59,6 +60,7 @@ func (k *Keepalive) Start() {
 		reset <- true
 	})
 	defer timer.Stop()
+    k.started = true
 
 	for {
 		select {
@@ -71,8 +73,11 @@ func (k *Keepalive) Start() {
 }
 
 func (k *Keepalive) Stop(force bool) {
-	k.logger.Print("STOP: Shutting Down")
-	k.close <- true
+    if k.started {
+        k.logger.Print("STOP: Shutting Down")
+        k.close <- true
+    }
+    k.started = false
 }
 
 func (k *Keepalive) publish(payload amqp.Publishing) {

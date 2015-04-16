@@ -24,6 +24,7 @@ type Rabbitmq struct {
 	conn         *amqp.Connection
 	channel      *amqp.Channel
 	disconnected chan *amqp.Error
+	connected    bool
 }
 
 const rabbitmqRetryInterval = 5 * time.Second
@@ -46,6 +47,7 @@ func (r *Rabbitmq) Connect(connected chan bool) {
 		select {
 		case <-done:
 			log.Println("RabbitMQ connected and channel established")
+			r.connected = true
 			connected <- true
 			return
 		case <-reset:
@@ -55,7 +57,10 @@ func (r *Rabbitmq) Connect(connected chan bool) {
 }
 
 func (r *Rabbitmq) Disconnect() {
-	r.conn.Close()
+	if r.connected {
+		r.conn.Close()
+	}
+	r.connected = false
 }
 
 func (r *Rabbitmq) Disconnected() chan *amqp.Error {
