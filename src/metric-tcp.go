@@ -29,7 +29,6 @@ func main() {
 
 	if nil != err {
 		fmt.Println(err)
-		m.ShowUsage()
 		os.Exit(1)
 	}
 

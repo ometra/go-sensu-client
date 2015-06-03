@@ -66,7 +66,7 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	if len(config.Args) > 1 {
 		err = tcp.flags.Parse(config.Args[1:])
 		if nil != err {
-			log.Printf("Failed to parse process check command line: %s", err)
+			return TCP_STATS_NAME, err
 		}
 	}
 
