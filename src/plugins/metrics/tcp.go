@@ -17,7 +17,7 @@ import (
 // gobs of this code lifted from: https://github.com/grahamking/latency/
 //
 // DESCRIPTION
-//  This plugin attempts to determine network latency. It can optionally reboot the device when the specified
+//  This plugin attempts to determine network latency.
 // interface is up and we cannot ping.
 //
 // OUTPUT
@@ -38,8 +38,6 @@ type TcpStats struct {
 	timeout          float64
 	workingTimeout   time.Duration
 	retryCount       int
-	reboot           bool
-	rebootStatFile   string
 	hostNiceName     string
 }
 
@@ -63,8 +61,6 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 	tcp.flags.IntVar(&tcp.networkPort, "port", 22, "The Port to SYN (Ping)")
 	tcp.flags.Float64Var(&tcp.timeout, "timeout", 10, "Number of seconds to wait for a response")
 	tcp.flags.IntVar(&tcp.retryCount, "retry-count", 3, "The number of times to retry before failing")
-	tcp.flags.BoolVar(&tcp.reboot, "reboot", false, "If the network is up and ping does not work - reboot")
-	tcp.flags.StringVar(&tcp.rebootStatFile, "reboot-stat-file", "", "deprecated - do not use")
 
 	var err error
 	if len(config.Args) > 1 {
@@ -99,7 +95,6 @@ func (tcp *TcpStats) Init(config plugins.PluginConfig) (string, error) {
 		log.Println("Listen Interface:", tcp.listenInterface)
 		log.Println("Test interface:  ", tcp.networkInterface)
 		log.Println("Port:            ", tcp.networkPort)
-		log.Println("Reboot:          ", tcp.reboot)
 		log.Println("Retry count:     ", tcp.retryCount)
 		log.Printf("Ping Timeout:     %s", tcp.workingTimeout.String())
 	}
@@ -147,7 +142,6 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 	}
 
 	var counter int
-	var worked bool
 	var totalLatency time.Duration
 	if "" != tcp.localAddress {
 	TryLoop:
@@ -158,31 +152,17 @@ func (tcp *TcpStats) Gather(r *plugins.Result) error {
 				totalLatency += latency
 				r.Add(fmt.Sprintf("tcp.latency.%s.ms %0.2f", tcp.hostNiceName, float32(totalLatency)/float32(time.Millisecond)))
 				r.Add(fmt.Sprintf("tcp.try-count.%s %d", tcp.hostNiceName, counter))
-				worked = true
 				break
 			}
 			switch errPing.(type) {
 			case receiveErrorType:
 				//log.Println(errPing)
-				worked = true
 				break TryLoop
 			case error:
 				totalLatency += tcp.workingTimeout
 				log.Printf("Failed TCP Ping check %d...", counter)
 			}
 		}
-	}
-
-	if !worked && tcp.reboot {
-		// if we have a file to write to, write a reboot counter
-		r.Add("tcp.reboot-count 1")
-
-		// log.Println("TCP Check Failed - Rebooting the system in 2 seconds")
-		// this gives the system time to flush
-
-		// time.AfterFunc(2*time.Second, func() {
-		// tcp.performReboot()
-		// })
 	}
 
 	return nil

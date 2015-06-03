@@ -41,6 +41,9 @@ func NewPluginProcessor(w io.Writer, statStore string) *PluginProcessor {
 	proc.saveResultsChan = make(chan bool)
 	proc.logger = log.New(w, "Plugin: ", log.LstdFlags)
 	proc.statStore = statStore
+	if "" == statStore {
+		proc.stopCollectingOnNoConnection = true
+	}
 
 	return proc
 }

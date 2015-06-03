@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sensu"
 	"strings"
 	"syscall"
@@ -55,16 +54,6 @@ func runner(stop chan bool) {
 	if "" != overrideAddress {
 		settings.Client.Address = overrideAddress
 		settings.Data().Get("client").Set("address", overrideAddress)
-	}
-
-	if "" == statStoreFile {
-		// put it in the same place as the config
-		var path string
-		if "" != configFile {
-			path, _ = filepath.Abs(filepath.Dir(configFile))
-		}
-
-		statStoreFile = path + "/stat.store"
 	}
 
 	processes := []sensu.Processor{

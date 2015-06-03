@@ -27,7 +27,9 @@ type Rabbitmq struct {
 	connected    bool
 }
 
-const rabbitmqRetryInterval = 5 * time.Second
+// back off logic
+const rabbitmqRetryInterval = 2
+const rabbitmqRetryIntervalMax = 120
 
 func NewRabbitmq(cfg RabbitmqConfig) *Rabbitmq {
 	uri := createRabbitmqUri(cfg)
@@ -43,15 +45,33 @@ func (r *Rabbitmq) Connect(connected chan bool) {
 	})
 	defer timer.Stop()
 
+	var backoffIntervalCounter, backoffInterval int64
+
 	for {
 		select {
 		case <-done:
 			log.Println("RabbitMQ connected and channel established")
 			r.connected = true
 			connected <- true
+			backoffIntervalCounter = 0
+			backoffInterval = 0
 			return
 		case <-reset:
-			timer.Reset(rabbitmqRetryInterval)
+			r.connected = false
+			backoffIntervalCounter++
+			if 0 == backoffInterval {
+				backoffInterval = rabbitmqRetryInterval
+			} else {
+				backoffInterval = backoffInterval * rabbitmqRetryInterval
+			}
+
+			if backoffInterval > rabbitmqRetryIntervalMax {
+				backoffInterval = rabbitmqRetryIntervalMax
+			}
+
+			log.Printf("Failed to connect, attempt %d, Retrying in %d seconds", backoffIntervalCounter, backoffInterval)
+
+			timer.Reset(time.Duration(backoffInterval) * time.Second)
 		}
 	}
 }

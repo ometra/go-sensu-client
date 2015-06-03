@@ -3,7 +3,6 @@ package sensu
 import (
 	"github.com/streadway/amqp"
 	"log"
-	"time"
 )
 
 type Processor interface {
@@ -52,7 +51,6 @@ func (c *Client) Start(stop chan bool) {
 			log.Printf("RabbitMQ disconnected: %s", errd)
 			c.Stop(false)
 
-			time.Sleep(10 * time.Second)
 			go c.q.Connect(connected)
 
 		case <-stop:
