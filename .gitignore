@@ -3,4 +3,5 @@ bin/*
 pkg/*
 src/github.com/*
 src/config/config.json
+src/config/*.pem
 sensu-client.iml

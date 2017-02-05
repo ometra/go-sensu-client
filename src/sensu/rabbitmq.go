@@ -1,12 +1,14 @@
 package sensu
 
 import (
+	"crypto/tls"
 	"fmt"
-	"github.com/streadway/amqp"
 	"log"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/streadway/amqp"
 )
 
 type MessageQueuer interface {
@@ -21,6 +23,7 @@ type MessageQueuer interface {
 
 type Rabbitmq struct {
 	uri          string
+	tlsConfig    *tls.Config
 	conn         *amqp.Connection
 	channel      *amqp.Channel
 	disconnected chan *amqp.Error
@@ -32,8 +35,20 @@ const rabbitmqRetryInterval = 2
 const rabbitmqRetryIntervalMax = 120
 
 func NewRabbitmq(cfg RabbitmqConfig) *Rabbitmq {
-	uri := createRabbitmqUri(cfg)
-	return &Rabbitmq{uri: uri}
+	isTLS := false
+	tlsConfig := new(tls.Config)
+	if cfg.Ssl.CertChainFile != "" && cfg.Ssl.PrivateKeyFile != "" {
+		log.Printf("In CERTS: %s", cfg.Ssl)
+		tlsConfig.InsecureSkipVerify = true
+		if cert, err := tls.LoadX509KeyPair(cfg.Ssl.CertChainFile, cfg.Ssl.PrivateKeyFile); err == nil {
+			tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+			isTLS = true
+		}
+	}
+
+	uri := createRabbitmqUri(cfg, isTLS)
+
+	return &Rabbitmq{uri: uri, tlsConfig: tlsConfig}
 }
 
 func (r *Rabbitmq) Connect(connected chan bool) {
@@ -146,7 +161,11 @@ func (r *Rabbitmq) connect(uri string, done chan bool) {
 	var err error
 
 	log.Printf("Dialing %q", uri)
-	r.conn, err = amqp.Dial(uri)
+	if len(r.tlsConfig.Certificates) > 0 {
+		r.conn, err = amqp.DialTLS(uri, r.tlsConfig)
+	} else {
+		r.conn, err = amqp.Dial(uri)
+	}
 	if err != nil {
 		log.Printf("Dial: %s", err)
 		return
@@ -166,9 +185,14 @@ func (r *Rabbitmq) connect(uri string, done chan bool) {
 	done <- true
 }
 
-func createRabbitmqUri(cfg RabbitmqConfig) string {
+func createRabbitmqUri(cfg RabbitmqConfig, isTLS bool) string {
+	scheme := "amqp"
+	if isTLS {
+		scheme = "amqps"
+	}
+
 	u := url.URL{
-		Scheme: "amqp",
+		Scheme: scheme,
 		Host:   fmt.Sprintf("%s:%s", cfg.Host, strconv.FormatInt(int64(cfg.Port), 10)),
 		Path:   fmt.Sprintf("/%s", cfg.Vhost),
 		User:   url.UserPassword(cfg.User, cfg.Password),
